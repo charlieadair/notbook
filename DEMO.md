@@ -218,7 +218,7 @@ Mirrors the same path against the local Study API on **http://127.0.0.1:8000**. 
 - `POST /api/v1/quizzes/:id/attempts` — `{ "item_id", "selected_choice_id" }` → grade → scoreboard
 - `GET /api/v1/notebooks/:id/scoreboard` — `{ "topics", "window": 20, "proficiency_bar": 0.8 }`
 
-Backend retrieve returns `[]` for an empty query, so `topics/propose` (which retrieves with `""`) does not invent names from the vault. The smoke below still asserts **409** before confirm, then uses the SPEC-allowed **explicit topic list** so pretest can retrieve by name.
+`topics/propose` samples vault chunks (`GET /api/v1/notebooks/:id/chunks?limit=32` or the in-process `list_chunks` callable) and never calls retrieve with `query=""`. Empty vault → `[]`. The smoke below still asserts **409** before confirm, then uses the SPEC-allowed **explicit topic list** so pretest can retrieve by name.
 
 Official vault-only smoke (server already running): `cd backend && ./scripts/smoke.sh`.
 
@@ -331,8 +331,8 @@ if [[ "$pre_code" != "409" ]]; then
   exit 1
 fi
 
-# Confirm an explicit topic list (no forced re-propose). Empty-body confirm
-# of a [] propose stays unconfirmed — Backend retrieve("") is [].
+# Confirm an explicit topic list (no forced re-propose). After ingest,
+# propose may return draft names from sampled chunks; explicit names still win.
 curl -fsS -X POST "$API/api/v1/notebooks/${NOTEBOOK_ID}/topics/confirm" \
   -H "Content-Type: application/json" \
   -d '{"names":["spectral theorem"]}' >"$tmp/confirm.json"

@@ -106,7 +106,7 @@ curl -s -X POST "$BASE/api/v1/notebooks/$NOTEBOOK/retrieve" \
 
 ```python
 from study_logic.api import install_study_logic
-install_study_logic(app, retrieve=app.state.retrieve, prefix="/api/v1")
+install_study_logic(app, retrieve=app.state.retrieve, list_chunks=app.state.list_chunks, prefix="/api/v1")
 ```
 
-`app.state.retrieve(notebook_id, query, top_k=8)` returns chunks with exact keys `id, source_id, text, locator, score, source_filename`. HTTP retrieve is the same callable. `GET /inference` reports `study_logic_mounted: true`.
+`app.state.retrieve(notebook_id, query, top_k=8)` returns chunks with exact keys `id, source_id, text, locator, score, source_filename`. HTTP retrieve is the same callable. Topic propose uses `app.state.list_chunks(notebook_id, limit=32)` (same shape, no scores) instead of empty-query retrieve. `GET /inference` reports `study_logic_mounted: true`.
