@@ -75,7 +75,7 @@ def retrieve(notebook_id: str, query: str, top_k: int = 8) -> list[Chunk]:
 
 ```python
 from study_logic.api import install_study_logic
-install_study_logic(app, retrieve=app.state.retrieve, prefix="/api/v1")
+install_study_logic(app, retrieve=app.state.retrieve, list_chunks=app.state.list_chunks, prefix="/api/v1")
 ```
 
 HTTP `POST /api/v1/notebooks/{id}/retrieve` is a thin wrapper over that same callable. `GET /inference` reports `study_logic_mounted: true`. Quiz pedagogy stays in Study-logic.

@@ -6,7 +6,7 @@ from app.config import Settings
 from app.db import init_db, make_engine, make_session_factory
 from app.inference import build_inference
 from app.routers import health, ingest, inspect, notebooks, retrieve
-from app.vault import bind_retrieve, mount_study_logic
+from app.vault import bind_list_chunks, bind_retrieve, mount_study_logic
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -37,6 +37,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.SessionLocal = make_session_factory(engine)
     app.state.inference = inference
     app.state.retrieve = bind_retrieve(app)
+    app.state.list_chunks = bind_list_chunks(app)
 
     app.include_router(health.router)
     app.include_router(notebooks.router)
