@@ -60,7 +60,7 @@ Do **not** put API keys, tokens, or kubeconfigs in the repo or in this file.
 
 ## Docker (published GHCR images)
 
-Public images — **anonymous `docker pull`, no `docker login`** once GHCR packages are public. Loopback ports only.
+Public images — **anonymous `docker pull`, no `docker login`** once GHCR packages are public. Loopback ports only. Images are **multi-arch** (`linux/amd64` and `linux/arm64`); Apple Silicon Macs can pull and run without `--platform linux/amd64`.
 
 Until `docker pull` works anonymously, clone this repo and **build locally** (no GHCR write needed):
 
