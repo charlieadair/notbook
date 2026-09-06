@@ -2,32 +2,50 @@
 
 S0 study engine for Notbook: **topics → grounded pretest → attempts → scoreboard**.
 
-This package is the study-logic boundary. It does **not** implement UI, OCR, or an embedding store. Retrieval is injected through `VaultRetrieve` so Backend can own the vault.
+This package is a **library**. It does **not** implement UI, OCR, or an embedding store, and it does **not** own the DEMO ports.
 
-## Layout
+## DEMO composition (production)
 
+| Process | Port | Role |
+| --- | --- | --- |
+| Web UI | **:3000** | Frontend only |
+| Backend | **:8000** | Single API. Mounts study routes at `/api/v1` |
+
+Study-logic must not bind `:3000`. Backend imports `StudyEngine` and mounts the routes below on `:8000`. Retrieval stays on Backend (`VaultRetrieve` / StubInference).
+
+```ts
+import { StudyEngine, HttpVaultRetrieve, StudyError } from "@notbook/study-logic";
+
+const engine = new StudyEngine({
+  vault: new HttpVaultRetrieve("http://127.0.0.1:8000"),
+});
+
+// Backend :8000 handlers call:
+//   engine.proposeTopics(notebookId)
+//   engine.confirmTopics(notebookId, body)
+//   engine.listTopics(notebookId)
+//   engine.createQuiz(notebookId)
+//   engine.gradeAttempt(quizId, body)
+//   engine.scoreboard(notebookId)
+// Map StudyError.status (409 / 422 / …) onto the HTTP response.
 ```
-packages/study-logic/
-  src/           # engine, HTTP adapter, vault contract, scoring
-  tests/         # confirm gate, citations, empty vault, scoreboard, vault contract
-```
 
-Root scripts (`npm test`, `npm run build`, `npm start`) delegate here.
+## Offline fixture smoke (not DEMO)
 
-## Install / test / run
-
-From the repo root (npm workspaces):
+`createStudyServer(engine)` + `npm start` is optional, for fixture smoke only.
 
 ```bash
 npm install
 npm test
 npm run build
-npm start          # thin HTTP server on PORT (default 3000)
+npm start                 # PORT defaults to 3001 — never 3000
+# or: PORT=3001 npm start
+bash packages/study-logic/scripts/smoke.sh   # http://127.0.0.1:3001
 ```
 
 ## HTTP routes
 
-All study routes are under `/api/v1`.
+All study routes are under `/api/v1` (DEMO: Backend `:8000`; offline smoke: `:3001`).
 
 | Method | Path | Behavior |
 | --- | --- | --- |
@@ -89,18 +107,14 @@ A chunk is citable only when `id` and `text` are non-empty. Quiz items must have
 
 ## Module exports
 
-`StudyEngine` is the main API. `createStudyServer(engine)` is a thin Node `http` wrapper around the same methods.
+`StudyEngine` is what Backend imports. `createStudyServer(engine)` is a thin Node `http` wrapper for offline smoke only.
 
-## Smoke path
-
-With `npm start` and the fixture vault:
+## Offline smoke path (port 3001)
 
 ```bash
-curl -s -X POST http://127.0.0.1:3000/api/v1/notebooks/nb_bio/topics/propose
-curl -s -X POST http://127.0.0.1:3000/api/v1/notebooks/nb_bio/topics/confirm
-curl -s -X POST http://127.0.0.1:3000/api/v1/notebooks/nb_bio/quizzes
-# or skip propose with an explicit list:
-curl -s -X POST http://127.0.0.1:3000/api/v1/notebooks/nb_bio/topics/confirm \
+curl -s -X POST http://127.0.0.1:3001/api/v1/notebooks/nb_bio/topics/confirm \
   -H 'content-type: application/json' \
   -d '{"names":["Mitosis","Meiosis"]}'
+curl -s -X POST http://127.0.0.1:3001/api/v1/notebooks/nb_bio/quizzes
+# DEMO smoke uses Backend :8000 instead of this process.
 ```
