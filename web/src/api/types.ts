@@ -155,7 +155,7 @@ export type ChatMessage = {
   id: string;
   chat_id: string;
   role: ChatMessageRole;
-  content: string;
+  text: string;
   created_at: string;
   citation_chunk_ids?: string[];
 };
@@ -183,7 +183,7 @@ export type Handoff = {
 };
 
 export type SendChatMessageInput = {
-  content: string;
+  text: string;
   role?: ChatMessageRole;
 };
 

@@ -259,14 +259,14 @@ export function toChatMessage(raw: unknown): ChatMessage {
     id: String(rec.id ?? rec.message_id ?? ""),
     chat_id: String(rec.chat_id ?? ""),
     role: toMessageRole(rec.role),
-    content: String(rec.content ?? rec.text ?? rec.body ?? rec.summary ?? ""),
+    text: String(rec.text ?? rec.content ?? rec.body ?? rec.summary ?? ""),
     created_at: String(rec.created_at ?? ""),
     citation_chunk_ids: cites.length ? cites : undefined,
   };
 }
 
 export function toChatMessages(raw: unknown): ChatMessage[] {
-  return unwrapList<unknown>(raw, ["messages", "items"]).map(toChatMessage).filter((m) => m.id || m.content);
+  return unwrapList<unknown>(raw, ["messages", "items"]).map(toChatMessage).filter((m) => m.id || m.text);
 }
 
 export function toSpawnCandidate(raw: unknown): SpawnCandidate {

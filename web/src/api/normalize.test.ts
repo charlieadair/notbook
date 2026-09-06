@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ApiError, parseErrorBody } from "./errors";
 import {
   toChat,
+  toChatMessage,
   toChats,
   toChunk,
   toGeneratedQuiz,
@@ -144,6 +145,27 @@ describe("S1 chat-tree normalize", () => {
     expect(handoff.summary).toMatch(/eigenvalues/);
     expect(handoff.scoreboard_snapshot[0].severity).toBe("severe");
     expect(toHandoffs({ handoffs: [handoff] })).toHaveLength(1);
+  });
+
+  it("reads ChatMessage.text from Study-logic { message } envelopes", () => {
+    const posted = toChatMessage({
+      message: {
+        id: "m1",
+        chat_id: "c1",
+        role: "user",
+        text: "Focus on this topic.",
+        created_at: "now",
+      },
+    });
+    expect(posted.text).toBe("Focus on this topic.");
+    expect(posted).not.toHaveProperty("content");
+  });
+
+  it("reads ChatMessage.text from a legacy content field if text is absent", () => {
+    const posted = toChatMessage({
+      message: { id: "m2", chat_id: "c1", role: "assistant", content: "legacy body", created_at: "now" },
+    });
+    expect(posted.text).toBe("legacy body");
   });
 });
 

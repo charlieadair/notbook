@@ -204,11 +204,11 @@ export class HttpStudyApi implements StudyApi {
   async sendChatMessage(chatId: string, input: SendChatMessageInput): Promise<ChatMessage | null> {
     const data = await this.requestOptional<unknown>(`/chats/${chatId}/messages`, {
       method: "POST",
-      json: { content: input.content, role: input.role ?? "user" },
+      json: { text: input.text, role: input.role ?? "user" },
     });
     if (data === undefined) return null;
     const message = toChatMessage(data);
-    return message.id || message.content ? message : null;
+    return message.id || message.text ? message : null;
   }
 
   async closeChat(chatId: string): Promise<Handoff> {
