@@ -51,6 +51,8 @@ S0 does not use an external vector database.
 - **Tesseract must be on `PATH`** for a happy path (`brew install tesseract` on macOS, `sudo apt-get install tesseract-ocr` on Debian/Ubuntu). Python wheels do not bundle the binary. The GHCR Study API image already installs it — Release owns that image.
 - If Tesseract is missing, or OCR / PDF extract fails, the `Source` row is still created and `extract_status` is set to `failed` with `error` populated. No chunks are written.
 - PDFs with no extractable text are `failed` (scanned PDFs should be uploaded as images for S0 OCR).
+- **PDF extract is bounded.** `extract_pdf_pages` stops at `PDF_MAX_PAGES` (default 200) and `PDF_MAX_CHARS` (default 500_000). The whole extract is wrapped in a wall-clock timeout (`PDF_EXTRACT_TIMEOUT_SECONDS`, default 30s). On timeout or pypdf failure the `Source` row is still created, `extract_status=failed`, `error` is set, and `POST /sources` returns **201** promptly so inspect still works. The request is never left open indefinitely.
+- **Embedding is bounded and non-fatal.** The OpenAI-compatible client uses separate HTTP connect + read timeouts (`INFERENCE_CONNECT_TIMEOUT_SECONDS` default 10s, `INFERENCE_READ_TIMEOUT_SECONDS` default 30s). Ingest also wraps `inference.embed` in `EMBED_TIMEOUT_SECONDS` (default 30s). On embed failure or timeout, chunks are still saved **without** vectors (`extract_status=ok`); retrieve already falls back to FTS5 / keyword. OpenRouter `:free` embed models can queue or stall with no useful error — do not rely on them to complete upload.
 
 ## Inference adapter
 
@@ -62,7 +64,7 @@ S0 does not use an external vector database.
 Implementations:
 
 1. **`StubInference`** (default) — deterministic feature-hashed embeddings; `complete` returns a fixed JSON string so Study-logic can develop offline.
-2. **`OpenAICompatibleInference`** — HTTP client for `{OPENAI_API_BASE}/embeddings` and `/chat/completions`. Reads `OPENAI_API_BASE`, `OPENAI_API_KEY`, `OPENAI_EMBED_MODEL`, `OPENAI_CHAT_MODEL`. No vendor is hardcoded in policy/retrieve/ingest code.
+2. **`OpenAICompatibleInference`** — HTTP client for `{OPENAI_API_BASE}/embeddings` and `/chat/completions`. Reads `OPENAI_API_BASE`, `OPENAI_API_KEY`, `OPENAI_EMBED_MODEL`, `OPENAI_CHAT_MODEL`. Connect and read timeouts are required (see above). No vendor is hardcoded in policy/retrieve/ingest code. Free/hosted OpenRouter models are a stall risk, not a supported SLA.
 
 Activate the remote adapter with `INFERENCE_PROVIDER=openai-compatible` (or `auto` when base + key are set). `GET /inference` reports the active adapter and model names; it never returns secrets.
 

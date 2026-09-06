@@ -21,7 +21,9 @@ class OpenAICompatibleInference(InferenceAdapter):
         api_key: str,
         embed_model: str,
         chat_model: str,
-        timeout: float = 60.0,
+        timeout: float | None = None,
+        connect_timeout: float = 10.0,
+        read_timeout: float = 30.0,
     ) -> None:
         if not api_base or not api_key:
             raise ValueError(
@@ -30,8 +32,20 @@ class OpenAICompatibleInference(InferenceAdapter):
         self.api_base = api_base.rstrip("/")
         self.embed_model = embed_model
         self.chat_model = chat_model
+        # A single float used to mean "all operations". Prefer explicit connect + read
+        # so a stalled OpenRouter/:free embed cannot hold the socket indefinitely.
+        if timeout is not None:
+            connect_timeout = timeout
+            read_timeout = timeout
+        self.connect_timeout = connect_timeout
+        self.read_timeout = read_timeout
         self._client = httpx.Client(
-            timeout=timeout,
+            timeout=httpx.Timeout(
+                connect=connect_timeout,
+                read=read_timeout,
+                write=read_timeout,
+                pool=connect_timeout,
+            ),
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
