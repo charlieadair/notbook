@@ -37,6 +37,7 @@ import type {
   Notebook,
   Scoreboard,
   SendChatMessageInput,
+  SendChatMessageResult,
   Source,
   SpawnOffer,
   StudyApi,
@@ -167,10 +168,8 @@ export class HttpStudyApi implements StudyApi {
   }
 
   async getOrCreateOrchestrator(notebookId: string): Promise<Chat | null> {
-    // Issue #22: POST get-or-create. Study-logic #24 also accepts GET on the same path.
-    const data = await this.requestOptional<unknown>(`/notebooks/${notebookId}/chats/orchestrator`, {
-      method: "POST",
-    });
+    // PR #24: GET and POST are both idempotent get-or-create. GET matches list/chats.
+    const data = await this.requestOptional<unknown>(`/notebooks/${notebookId}/chats/orchestrator`);
     if (data === undefined) return null;
     const chats = toChats(data);
     if (chats.length) return chats.find((c) => c.kind === "orchestrator") ?? chats[0];
@@ -207,16 +206,22 @@ export class HttpStudyApi implements StudyApi {
     return data === undefined ? [] : toChatMessages(data);
   }
 
-  async sendChatMessage(chatId: string, input: SendChatMessageInput): Promise<ChatMessage | null> {
+  async sendChatMessage(chatId: string, input: SendChatMessageInput): Promise<SendChatMessageResult> {
+    const text = (input.text ?? "").trim();
+    const json: Record<string, unknown> = input.generate_quiz
+      ? { generate_quiz: true, ...(text ? { text, role: input.role ?? "user" } : {}) }
+      : { text, role: input.role ?? "user" };
     const data = await this.requestOptional<unknown>(`/chats/${chatId}/messages`, {
       method: "POST",
-      json: input.generate_quiz
-        ? { text: input.text, role: input.role ?? "user", generate_quiz: true }
-        : { text: input.text, role: input.role ?? "user" },
+      json,
     });
-    if (data === undefined) return null;
+    if (data === undefined) return { message: null };
+    const rec = asRecord(data);
     const message = toChatMessage(data);
-    return message.id || message.text ? message : null;
+    return {
+      message: message.id || message.text ? message : null,
+      quiz: rec.quiz ? toGeneratedQuiz(rec.quiz) : undefined,
+    };
   }
 
   async closeChat(chatId: string): Promise<Handoff> {

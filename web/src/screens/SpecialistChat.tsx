@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react";
-import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { useApi } from "../api/ApiContext";
-import type { ChatMessage, Topic } from "../api/types";
+import type { ChatMessage, GeneratedQuiz, QuizItem, Topic } from "../api/types";
 import { Banner } from "../components/Banner";
 import { ScoreRow } from "../components/ScoreRow";
 import { useAsync } from "../hooks/useAsync";
@@ -14,11 +14,16 @@ export function SpecialistChat() {
   const { chatId = "" } = useParams();
   const api = useApi();
   const navigate = useNavigate();
+  const location = useLocation();
+  const spawnWarnings = (location.state as { warnings?: string[] } | null)?.warnings ?? [];
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [closing, setClosing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [composeNote, setComposeNote] = useState<string | null>(null);
+  const [quiz, setQuiz] = useState<GeneratedQuiz | null>(null);
+  const [quizIndex, setQuizIndex] = useState(0);
+  const [picked, setPicked] = useState<string | null>(null);
 
   const chat = useAsync(() => api.getChat(chatId, notebookId), [api, chatId, notebookId]);
   const topics = useAsync(() => api.listTopics(notebookId), [api, notebookId]);
@@ -42,10 +47,53 @@ export function SpecialistChat() {
     try {
       const posted = await api.sendChatMessage(chatId, { text: content });
       setDraft("");
-      if (!posted) {
+      if (!posted.message) {
         setComposeNote("Message endpoint is not mounted yet. You can still close this chat to send a handoff.");
       }
       await messages.reload();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function generateQuiz() {
+    setBusy(true);
+    setError(null);
+    try {
+      const posted = await api.sendChatMessage(chatId, { generate_quiz: true });
+      await messages.reload();
+      if (posted.quiz?.items.length) {
+        setQuiz(posted.quiz);
+        setQuizIndex(0);
+        setPicked(null);
+        setComposeNote(
+          `Grounded quiz generated (${posted.quiz.items.length} cited items). Grade uses POST /quizzes/:id/attempts — shared scoreboard.`,
+        );
+      } else if (!posted.message) {
+        setComposeNote("generate_quiz is not mounted yet. Close still writes a handoff.");
+      }
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function gradeQuizItem(item: QuizItem) {
+    if (!quiz || !picked) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.submitAttempt(quiz.quiz.id, { item_id: item.id, selected_choice_id: picked });
+      await board.reload();
+      if (quizIndex >= quiz.items.length - 1) {
+        setComposeNote("Attempt saved on the shared scoreboard.");
+      } else {
+        setQuizIndex((i) => i + 1);
+        setPicked(null);
+      }
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -104,6 +152,9 @@ export function SpecialistChat() {
       </header>
 
       {error ? <Banner tone="error">{error}</Banner> : null}
+      {spawnWarnings.length ? (
+        <Banner>{spawnWarnings.join(" ")}</Banner>
+      ) : null}
 
       {slice.map((row) => (
         <ScoreRow
@@ -148,12 +199,53 @@ export function SpecialistChat() {
               <button className="btn" type="submit" disabled={busy || !draft.trim()}>
                 {busy ? "Sending…" : "Send"}
               </button>
+              <button
+                className="btn btn-ghost"
+                type="button"
+                disabled={busy}
+                onClick={() => void generateQuiz()}
+              >
+                Generate grounded quiz
+              </button>
             </div>
           </form>
         ) : (
           <Banner>This focus chat is closed. The handoff should already be on the orchestrator.</Banner>
         )}
       </section>
+
+      {quiz && quiz.items[quizIndex] ? (
+        <section className="paper">
+          <h2>
+            Grounded item {quizIndex + 1} of {quiz.items.length}
+          </h2>
+          <p>{quiz.items[quizIndex].stem}</p>
+          <div className="choices" role="radiogroup">
+            {quiz.items[quizIndex].choices.map((choice) => (
+              <label key={choice.id} className="choice">
+                <input
+                  type="radio"
+                  name="specialist-choice"
+                  checked={picked === choice.id}
+                  onChange={() => setPicked(choice.id)}
+                />
+                <span>{choice.text}</span>
+              </label>
+            ))}
+          </div>
+          <p className="muted">
+            Citations: {quiz.items[quizIndex].citation_chunk_ids.join(", ") || "none — should not happen"}
+          </p>
+          <button
+            className="btn"
+            type="button"
+            disabled={busy || !picked}
+            onClick={() => void gradeQuizItem(quiz.items[quizIndex])}
+          >
+            {busy ? "Saving…" : "Submit attempt"}
+          </button>
+        </section>
+      ) : null}
 
       <div className="row">
         {!closed ? (

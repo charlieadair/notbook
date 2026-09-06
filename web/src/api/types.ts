@@ -183,9 +183,14 @@ export type Handoff = {
 };
 
 export type SendChatMessageInput = {
-  text: string;
+  text?: string;
   role?: ChatMessageRole;
   generate_quiz?: boolean;
+};
+
+export type SendChatMessageResult = {
+  message: ChatMessage | null;
+  quiz?: GeneratedQuiz;
 };
 
 export type CreateSpecialistsResult = {
@@ -215,7 +220,7 @@ export interface StudyApi {
   getSpawnOffer(notebookId: string): Promise<SpawnOffer>;
   /** GET /notebooks/:id/chats — [] on 404/501. */
   listChats(notebookId: string): Promise<Chat[]>;
-  /** POST /notebooks/:id/chats/orchestrator — idempotent get-or-create; null on 404/501. */
+  /** GET|POST /notebooks/:id/chats/orchestrator — idempotent get-or-create; null on 404/501. */
   getOrCreateOrchestrator(notebookId: string): Promise<Chat | null>;
   /** GET /chats/:id, else find in notebook chat list; null on 404/501. */
   getChat(chatId: string, notebookId?: string): Promise<Chat | null>;
@@ -223,8 +228,8 @@ export interface StudyApi {
   createSpecialists(notebookId: string, topicIds: string[]): Promise<CreateSpecialistsResult>;
   /** GET /chats/:id/messages — [] on 404/501. */
   listChatMessages(chatId: string): Promise<ChatMessage[]>;
-  /** POST /chats/:id/messages — null on 404/501. */
-  sendChatMessage(chatId: string, input: SendChatMessageInput): Promise<ChatMessage | null>;
+  /** POST /chats/:id/messages `{ text, generate_quiz? }` → `{ message, quiz? }`; 404/501 → empty. */
+  sendChatMessage(chatId: string, input: SendChatMessageInput): Promise<SendChatMessageResult>;
   /** POST /chats/:id/close → Handoff into orchestrator. */
   closeChat(chatId: string): Promise<Handoff>;
   /** GET /notebooks/:id/handoffs — [] on 404/501. */

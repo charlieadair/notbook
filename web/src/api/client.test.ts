@@ -185,7 +185,7 @@ describe("HttpStudyApi S1 stubs", () => {
       "POST http://127.0.0.1:8000/api/v1/chats/c1/close",
       "GET http://127.0.0.1:8000/api/v1/notebooks/nb/chats",
       "GET http://127.0.0.1:8000/api/v1/notebooks/nb/handoffs",
-      "POST http://127.0.0.1:8000/api/v1/notebooks/nb/chats/orchestrator",
+      "GET http://127.0.0.1:8000/api/v1/notebooks/nb/chats/orchestrator",
     ]);
   });
 
@@ -202,7 +202,7 @@ describe("HttpStudyApi S1 stubs", () => {
     await expect(api.listChatMessages("c1")).resolves.toEqual([]);
     await expect(api.getOrCreateOrchestrator("nb")).resolves.toBeNull();
     await expect(api.getChat("c1")).resolves.toBeNull();
-    await expect(api.sendChatMessage("c1", { text: "hi" })).resolves.toBeNull();
+    await expect(api.sendChatMessage("c1", { text: "hi" })).resolves.toEqual({ message: null });
   });
 
   it("POSTs /chats/:id/messages with { text } (Study-logic MessageBody)", async () => {
@@ -224,7 +224,7 @@ describe("HttpStudyApi S1 stubs", () => {
     });
     const api = new HttpStudyApi({ baseUrl: "http://127.0.0.1:8000/api/v1", fetchFn });
     const posted = await api.sendChatMessage("c1", { text: "Focus on this topic." });
-    expect(posted).toMatchObject({ id: "m1", chat_id: "c1", text: "Focus on this topic." });
+    expect(posted.message).toMatchObject({ id: "m1", chat_id: "c1", text: "Focus on this topic." });
   });
 });
 
@@ -267,6 +267,10 @@ describe("MockStudyApi S0 path", () => {
     });
     const proposed = await api.proposeTopics(nb.id);
     await api.confirmTopics(nb.id, { topic_ids: proposed.map((t) => t.id) });
+    const emptyOffer = await api.getSpawnOffer(nb.id);
+    expect(emptyOffer.candidates).toEqual([]);
+    const listed = await api.listChats(nb.id);
+    expect(listed.some((c) => c.kind === "orchestrator")).toBe(true);
     const quiz = await api.createPretest(nb.id);
     for (const item of quiz.items) {
       const wrong = item.choices.find((c) => c.id !== item.correct_choice_id)?.id ?? item.choices[0].id;

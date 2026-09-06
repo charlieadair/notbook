@@ -88,7 +88,9 @@ export function SpawnOfferPanel({ notebookId, onAvailability }: Props) {
         setError("Study-logic did not return a specialist chat. S1 routes may not be mounted yet.");
         return;
       }
-      navigate(`/notebooks/${notebookId}/chats/${created.chats[0].id}`);
+      navigate(`/notebooks/${notebookId}/chats/${created.chats[0].id}`, {
+        state: { warnings: created.warnings },
+      });
     } catch (err) {
       setError(errorMessage(err));
     } finally {
