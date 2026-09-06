@@ -1,0 +1,12 @@
+{
+  "name": "notbook",
+  "private": true,
+  "workspaces": [
+    "packages/study-logic"
+  ],
+  "scripts": {
+    "build": "npm run build -w @notbook/study-logic",
+    "test": "npm test -w @notbook/study-logic",
+    "start": "npm start -w @notbook/study-logic"
+  }
+}
