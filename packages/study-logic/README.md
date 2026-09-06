@@ -2,7 +2,9 @@
 
 S0 study engine for Notbook: **topics → grounded pretest → attempts → scoreboard**.
 
-This package is a **library**. It does **not** implement UI, OCR, or an embedding store, and it does **not** own the DEMO ports.
+This package is the TypeScript reference/tests. It does **not** implement UI, OCR, or an embedding store, and it does **not** own the DEMO ports.
+
+**DEMO mounts the Python FastAPI router** from [`packages/study_logic`](../study_logic) on Backend **:8000** (`install_study_logic` / `app.include_router(..., prefix="/api/v1")`). Do not run this Node server as the DEMO API and do not bind `:3000` or `:::3000`.
 
 ## DEMO composition (production)
 
@@ -11,7 +13,7 @@ This package is a **library**. It does **not** implement UI, OCR, or an embeddin
 | Web UI | **:3000** | Frontend only |
 | Backend **FastAPI** | **:8000** | Single API. Mounts study routes at `/api/v1` |
 
-Production/demo mounts study routes under **Backend FastAPI `/api/v1` on :8000**. This package must not bind `:3000` or `:::3000`. Backend imports `StudyEngine` and wires those handlers. Retrieval stays on Backend (`VaultRetrieve` / StubInference).
+Production/demo mounts study routes under **Backend FastAPI `/api/v1` on :8000** via [`packages/study_logic`](../study_logic) (`install_study_logic(app, retrieve=..., prefix="/api/v1")`). This TS package must not bind `:3000` or `:::3000`. Retrieval stays on Backend (`VaultRetrieve` / StubInference). The TypeScript `StudyEngine` below is the reference implementation only.
 
 ```ts
 import { StudyEngine, HttpVaultRetrieve, StudyError } from "@notbook/study-logic";

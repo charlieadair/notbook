@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: study-logic
+Version: 0.1.0
+Summary: Notbook S0 study engine — FastAPI router for Backend :8000
+Requires-Python: >=3.11
+Requires-Dist: fastapi>=0.115.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: httpx>=0.27; extra == "dev"
