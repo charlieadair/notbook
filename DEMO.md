@@ -421,14 +421,15 @@ echo "S0 API smoke: ingest → inspect → confirm → cited pretest → scorebo
 # set NOTBOOK_SMOKE_S1=0 to skip, or leave default 1 to fail closed.
 # ---------------------------------------------------------------------------
 S1="${NOTBOOK_SMOKE_S1:-1}"
+if [[ "$S1" != "1" ]]; then
+  echo "S1 smoke skipped (NOTBOOK_SMOKE_S1=${S1}). S0 smoke already passed."
+  exit 0
+fi
 s1_code="$(curl_json "$tmp/s1_probe.json" "$API/api/v1/notebooks/${NOTEBOOK_ID}/spawn-offer")"
 if [[ "$s1_code" == "404" || "$s1_code" == "501" ]]; then
   echo "S1 routes not mounted (HTTP ${s1_code}). S0 smoke already passed."
-  if [[ "$S1" == "1" ]]; then
-    echo "FAIL: S1 spawn-offer expected on main (set NOTBOOK_SMOKE_S1=0 to skip)" >&2
-    exit 1
-  fi
-  exit 0
+  echo "FAIL: S1 spawn-offer expected on main (set NOTBOOK_SMOKE_S1=0 to skip)" >&2
+  exit 1
 fi
 if [[ "$s1_code" != "200" ]]; then
   echo "FAIL: GET spawn-offer HTTP ${s1_code}" >&2
