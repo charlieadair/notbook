@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useApi } from "../api/ApiContext";
-import type { Chat, SpawnOffer, Topic } from "../api/types";
+import type { Chat, Topic } from "../api/types";
 import { useAsync } from "../hooks/useAsync";
 import { errorMessage } from "../lib/format";
 import { capSpawnSelection, defaultSelectedTopicIds, sortSpawnCandidates } from "../lib/spawn";
