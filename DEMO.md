@@ -141,6 +141,8 @@ Mirrors the same path against the local Study API on **http://127.0.0.1:8000**. 
 - `POST /api/v1/quizzes/:id/attempts` — `{ "item_id", "selected_choice_id" }` → grade → scoreboard
 - `GET /api/v1/notebooks/:id/scoreboard` — `{ "topics", "window": 20, "proficiency_bar": 0.8 }`
 
+Backend retrieve returns `[]` for an empty query, so `topics/propose` (which retrieves with `""`) does not invent names from the vault. The smoke below still asserts **409** before confirm, then uses the SPEC-allowed **explicit topic list** so pretest can retrieve by name.
+
 Official vault-only smoke (server already running): `cd backend && ./scripts/smoke.sh`.
 
 The script below exits **non-zero** if pretest items lack citations or the scoreboard is empty. Requires `curl` and `python3`. Run from the **repo root** with uvicorn on `:8000`.
@@ -252,14 +254,11 @@ if [[ "$pre_code" != "409" ]]; then
   exit 1
 fi
 
-# Confirm proposed topics (or pass an explicit list — no forced re-propose).
-# Explicit-list variant (do not also require propose):
-#   curl -fsS -X POST "$API/api/v1/notebooks/${NOTEBOOK_ID}/topics/confirm" \
-#     -H "Content-Type: application/json" \
-#     -d '{"names":["spectral theorem"]}'
+# Confirm an explicit topic list (no forced re-propose). Empty-body confirm
+# of a [] propose stays unconfirmed — Backend retrieve("") is [].
 curl -fsS -X POST "$API/api/v1/notebooks/${NOTEBOOK_ID}/topics/confirm" \
   -H "Content-Type: application/json" \
-  -d '{}' >"$tmp/confirm.json"
+  -d '{"names":["spectral theorem"]}' >"$tmp/confirm.json"
 curl -fsS "$API/api/v1/notebooks/${NOTEBOOK_ID}/topics" >"$tmp/topics.json"
 
 # 5) Pretest — items MUST include citation_chunk_ids; 422 if evidence is thin.
