@@ -71,8 +71,8 @@ export function parseErrorBody(body: unknown): { code: string; message: string }
 }
 
 function statusCodeName(status: number): string {
-  if (status === 409) return "TopicsUnconfirmed";
-  if (status === 422) return "InsufficientEvidence";
+  if (status === 409) return "topics_unconfirmed";
+  if (status === 422) return "insufficient_evidence";
   if (status === 404) return "NotFound";
   if (status === 400) return "BadRequest";
   return `HTTP_${status}`;

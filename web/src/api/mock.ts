@@ -226,7 +226,14 @@ export class MockStudyApi implements StudyApi {
       created_at: nowIso(),
     };
     this.state.attempts.push(attempt);
-    return { attempt, scores: this.scoresFor(quiz.notebook_id) };
+    return {
+      attempt,
+      scoreboard: {
+        topics: this.scoresFor(quiz.notebook_id),
+        window: 20,
+        proficiency_bar: 0.8,
+      },
+    };
   }
 
   async getScoreboard(notebookId: string): Promise<Scoreboard> {

@@ -75,26 +75,37 @@ describe("normalize", () => {
     expect(chunk.source_label).toBe("notes.pdf");
   });
 
-  it("reads attempt + scores and scoreboard window defaults", () => {
+  it("reads locked attempt + scoreboard envelopes", () => {
     const graded = toGradeAttemptResult({
-      attempt: { id: "a", item_id: "i", quiz_id: "q", notebook_id: "n", selected_choice_id: "c", correct: true },
-      scores: [{ topic_id: "t", correct_rate: 0.5, severity: "mild" }],
+      attempt: { id: "a", item_id: "i", quiz_id: "q", notebook_id: "n", selected_choice_id: "c", correct: true, topic_ids: ["t"], created_at: "now" },
+      scoreboard: {
+        topics: [{ topic_id: "t", notebook_id: "n", correct_count: 1, attempt_count: 2, correct_rate: 0.5, proficient: false, severity: "mild", updated_at: "now" }],
+        window: 20,
+        proficiency_bar: 0.8,
+      },
     });
     expect(graded.attempt.correct).toBe(true);
-    expect(graded.scores[0].severity).toBe("mild");
+    expect(graded.scoreboard.topics[0].severity).toBe("mild");
+    expect(graded.scoreboard.window).toBe(20);
+    expect(graded.scoreboard.proficiency_bar).toBe(0.8);
 
-    const board = toScoreboard({ topics: [{ topic_id: "t", correct_rate: 1, proficient: true }] });
+    const board = toScoreboard({
+      topics: [{ topic_id: "t", correct_rate: 1, proficient: true, severity: "ok" }],
+      window: 20,
+      proficiency_bar: 0.8,
+    });
     expect(board.window).toBe(20);
     expect(board.proficiency_bar).toBe(0.8);
   });
 });
 
 describe("ApiError", () => {
-  it("classifies 409 / TopicsUnconfirmed and 422 / InsufficientEvidence", () => {
-    const gate = new ApiError(409, "TopicsUnconfirmed", "confirm first");
-    const thin = new ApiError(422, "InsufficientEvidence", "no chunks");
+  it("classifies 409 topics_unconfirmed and 422 insufficient_evidence", () => {
+    const gate = new ApiError(409, "topics_unconfirmed", "confirm first");
+    const thin = new ApiError(422, "insufficient_evidence", "no chunks");
     expect(gate.isTopicsUnconfirmed).toBe(true);
     expect(thin.isInsufficientEvidence).toBe(true);
-    expect(parseErrorBody({ error: "TopicsUnconfirmed", message: "x" }).code).toBe("TopicsUnconfirmed");
+    expect(parseErrorBody({ error: "topics_unconfirmed" }).code).toBe("topics_unconfirmed");
+    expect(parseErrorBody({ error: "insufficient_evidence" }).code).toBe("insufficient_evidence");
   });
 });

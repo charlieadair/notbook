@@ -35,6 +35,39 @@ describe("HttpStudyApi.createPretest", () => {
     expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 
+  it("parses locked Study-logic JSON envelopes", async () => {
+    const fetchFn = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/topics/propose")) {
+        return jsonResponse(200, {
+          topics: [{ id: "t1", notebook_id: "nb", name: "Mitosis", confirmed: false, sort_order: 0 }],
+        });
+      }
+      if (url.endsWith("/attempts")) {
+        return jsonResponse(200, {
+          attempt: {
+            id: "a1",
+            item_id: "i1",
+            quiz_id: "q1",
+            notebook_id: "nb",
+            selected_choice_id: "c1",
+            correct: true,
+            topic_ids: ["t1"],
+            created_at: "now",
+          },
+          scoreboard: { topics: [{ topic_id: "t1", notebook_id: "nb", correct_count: 1, attempt_count: 1, correct_rate: 1, proficient: true, severity: "ok", updated_at: "now" }], window: 20, proficiency_bar: 0.8 },
+        });
+      }
+      return jsonResponse(500, { error: "unexpected" });
+    });
+    const api = new HttpStudyApi({ baseUrl: "http://127.0.0.1:8000/api/v1", fetchFn });
+    const topics = await api.proposeTopics("nb");
+    expect(topics[0]).toMatchObject({ id: "t1", confirmed: false, sort_order: 0 });
+    const graded = await api.submitAttempt("q1", { item_id: "i1", selected_choice_id: "c1" });
+    expect(graded.scoreboard.window).toBe(20);
+    expect(graded.scoreboard.proficiency_bar).toBe(0.8);
+  });
+
   it("does not swallow a 409 topics gate", async () => {
     const fetchFn = vi.fn(async () =>
       jsonResponse(409, { error: "topics_unconfirmed", message: "Confirm every topic" }),

@@ -82,7 +82,7 @@ Typed client in `src/api/`. Base `/api/v1`. Vault names match Backend + OpenAPI 
 
 Retrieve stays on the client for Study-logic; the vault browser uses inspect only.
 
-Gates: **409** `{ error: "TopicsUnconfirmed" | "topics_unconfirmed" }`, **422** `{ error: "InsufficientEvidence" | "insufficient_evidence" }`.
+Gates: **409** `{ error: "topics_unconfirmed" }`, **422** `{ error: "insufficient_evidence" }`.
 
 Response envelopes are normalized (`[]` or `{ topics }`, `{ quiz, items }`, `{ attempt, scores }` or `{ attempt, scoreboard }`).
 

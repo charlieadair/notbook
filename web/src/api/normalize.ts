@@ -107,7 +107,7 @@ export function toQuizItem(raw: unknown): QuizItem {
     topic_ids: unwrapList<unknown>(rec.topic_ids, ["topic_ids"]).map(String),
     stem: String(rec.stem ?? rec.question ?? rec.prompt ?? ""),
     choices,
-    correct_choice_id: rec.correct_choice_id ? String(rec.correct_choice_id) : undefined,
+    correct_choice_id: String(rec.correct_choice_id ?? ""),
     citation_chunk_ids: cites,
     rationale: rec.rationale ? String(rec.rationale) : undefined,
   };
@@ -120,7 +120,7 @@ export function toQuiz(raw: unknown): Quiz {
   return {
     id: String(rec.id ?? rec.quiz_id ?? ""),
     notebook_id: String(rec.notebook_id ?? ""),
-    kind: String(rec.kind ?? "pretest"),
+    kind: "pretest",
     item_ids: itemIds.length ? itemIds : items.map((item) => toQuizItem(item).id).filter(Boolean),
     created_at: String(rec.created_at ?? new Date().toISOString()),
   };
@@ -168,14 +168,11 @@ export function toTopicScore(raw: unknown): TopicScore {
 
 export function toGradeAttemptResult(raw: unknown): GradeAttemptResult {
   const rec = asRecord(raw);
-  const scoreboard = asRecord(rec.scoreboard);
+  const nested = asRecord(rec.scoreboard);
+  const boardRaw = rec.scoreboard ?? { topics: rec.scores ?? rec.topic_scores, window: nested.window, proficiency_bar: nested.proficiency_bar };
   return {
     attempt: toAttempt(rec.attempt ?? raw),
-    scores: unwrapList<unknown>(rec.scores ?? rec.topic_scores ?? scoreboard.topics ?? rec.scoreboard, [
-      "scores",
-      "topic_scores",
-      "topics",
-    ]).map(toTopicScore),
+    scoreboard: toScoreboard(boardRaw),
   };
 }
 

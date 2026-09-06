@@ -50,7 +50,7 @@ export type QuizItem = {
   topic_ids: string[];
   stem: string;
   choices: QuizChoice[];
-  correct_choice_id?: string;
+  correct_choice_id: string;
   citation_chunk_ids: string[];
   rationale?: string;
 };
@@ -58,14 +58,20 @@ export type QuizItem = {
 export type Quiz = {
   id: string;
   notebook_id: string;
-  kind: "pretest" | string;
+  kind: "pretest";
   item_ids: string[];
   created_at: string;
 };
 
+/** POST /notebooks/{id}/quizzes */
 export type GeneratedQuiz = {
   quiz: Quiz;
   items: QuizItem[];
+};
+
+/** POST …/topics/propose and POST …/topics/confirm */
+export type TopicsResponse = {
+  topics: Topic[];
 };
 
 export type Attempt = {
@@ -109,9 +115,10 @@ export type GradeAttemptInput = {
   selected_choice_id: string;
 };
 
+/** POST /quizzes/{id}/attempts */
 export type GradeAttemptResult = {
   attempt: Attempt;
-  scores: TopicScore[];
+  scoreboard: Scoreboard;
 };
 
 export type Health = {

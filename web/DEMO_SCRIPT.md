@@ -47,5 +47,5 @@ Open `http://127.0.0.1:3000`. No account. If the home screen says the API is unr
 Pretest: `POST /notebooks/{id}/quizzes` only.  
 Ingest: single `POST /notebooks/{id}/sources` (multipart `file` or JSON `{filename?, text}`).  
 Vault inspect: `GET /notebooks/{id}/sources`, `GET /sources/{id}/chunks`, `GET /chunks/{id}`.  
-409 `{ error: "topics_unconfirmed" | "TopicsUnconfirmed" }` → nudge to confirm topics.  
-422 `{ error: "insufficient_evidence" | "InsufficientEvidence" }` → explain weak/empty vault; do not invent items.
+409 `{ error: "topics_unconfirmed" }` → nudge to confirm topics.  
+422 `{ error: "insufficient_evidence" }` → explain weak/empty vault; do not invent items.
