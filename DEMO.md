@@ -2,7 +2,7 @@
 
 Release gate for the Student Build Challenge. Contract: [`SPEC.md`](SPEC.md) §12 (S0 acceptance). Self-hosted first. No multi-user auth, no public k8s/Cloudflare ingress, no Legal/ToS for strangers.
 
-**Backend vault is on main** (`backend/`). Study-logic is mounted on the same FastAPI app under `/api/v1`. **Web UI is on main** (`web/`, PR #4). This file pins those run commands.
+**Backend vault is on main** (`backend/`). Study-logic is mounted on the same FastAPI app under `/api/v1`. **Web UI is on main** (`web/`, PR #4). This file pins those run commands. Public GHCR images are for **local** `docker compose` / `docker run` only — not hosted SaaS.
 
 ---
 
@@ -18,10 +18,11 @@ Walk that path in the local UI (`http://127.0.0.1:3000`). The 60s click path is 
 
 ## Prerequisites
 
-- **Machine with this repo cloned** (single-user, local).
-- **Python 3.11+** for the Study API.
-- **Node.js + npm** for the Web UI (`web/`; Vite `npm run dev`).
-- **Tesseract** on the host if you want image/handwriting OCR (`sudo apt-get install tesseract-ocr` on Debian/Ubuntu). Without it, image ingest still creates a `Source` with `extract_status=failed` — honest failure, not silent success.
+- **Machine with this repo cloned** (single-user, local) — or just Docker, if you use the published images.
+- **Docker** (Compose v2) for the GHCR / compose path.
+- **Python 3.11+** for the Study API if you run it from source.
+- **Node.js + npm** for the Web UI (`web/`; Vite `npm run dev`) if you run it from source.
+- **Tesseract** on the host if you run the API from source and want image/handwriting OCR (`sudo apt-get install tesseract-ocr` on Debian/Ubuntu). The published API image already includes Tesseract. Without it, image ingest still creates a `Source` with `extract_status=failed` — honest failure, not silent success.
 - **Inference** — one of:
   - Default **stub** adapter (hash embeddings + fixed JSON complete; no key required).
   - Local model runtime (~16GB GPU VRAM), or
@@ -57,7 +58,63 @@ Do **not** put API keys, tokens, or kubeconfigs in the repo or in this file.
 
 ---
 
-## Install & run (self-hosted)
+## Docker (published GHCR images)
+
+Public images — **anonymous `docker pull`, no `docker login`**. Loopback ports only.
+
+| What | Image |
+| --- | --- |
+| All-in-one (API + UI) | `ghcr.io/charlieadair/notbook:latest` (also `:s0`) |
+| Study API | `ghcr.io/charlieadair/notbook/api:latest` (also `:s0`, `:api` on the repo image) |
+| Web UI | `ghcr.io/charlieadair/notbook/web:latest` (also `:s0`, `:web` on the repo image) |
+
+### One container
+
+```bash
+docker pull ghcr.io/charlieadair/notbook:latest
+docker run --rm \
+  -p 127.0.0.1:8000:8000 \
+  -p 127.0.0.1:3000:3000 \
+  -e INFERENCE_PROVIDER=stub \
+  ghcr.io/charlieadair/notbook:latest
+```
+
+### Compose stack (API + Web)
+
+```bash
+git clone https://github.com/charlieadair/notbook.git
+cd notbook
+docker compose pull
+docker compose up
+```
+
+`docker compose up --build` builds from this repo instead of pulling.
+
+### Smoke after `up`
+
+```bash
+curl -fsS http://127.0.0.1:8000/health
+# expect JSON including "status":"ok"
+# then open the UI:
+#   http://127.0.0.1:3000
+```
+
+Compose binds **127.0.0.1** only. A public ingress URL is out of scope. Inference keys, if you use a provider, stay in your shell / local env — never commit them.
+
+Optional BYO inference (host Ollama or any OpenAI-compatible server):
+
+```bash
+INFERENCE_PROVIDER=openai-compatible \
+OPENAI_API_BASE=http://host.docker.internal:11434/v1 \
+OPENAI_API_KEY=sk-local \
+docker compose up
+```
+
+Images rebuild on `main` via [`.github/workflows/ghcr.yml`](.github/workflows/ghcr.yml).
+
+---
+
+## Install & run (self-hosted, from source)
 
 1. **Clone the repo**
 
@@ -363,8 +420,10 @@ Release runs this on a **fresh shell** before calling the demo green. Maps to [`
 - [ ] No secrets in git; no multi-user auth / public ingress / Legal docs required for the path
 - [ ] Web UI starts from DEMO install steps (`cd web && npm install && npm run dev` → `http://127.0.0.1:3000`)
 - [ ] 60s judge click path in [`web/DEMO_SCRIPT.md`](web/DEMO_SCRIPT.md) completes against the real `:8000` API (no mock)
+- [ ] Home screen shows API connected (not “API unreachable”)
+- [ ] `docker pull ghcr.io/charlieadair/notbook:latest` works anonymously; compose `/health` + UI load
 
-Backend + Web install on main. Study-logic is on the `:8000` app. Judge path is local UI `:3000` + API `:8000`.
+Backend + Web install on main. Study-logic is on the `:8000` app. Judge path is local UI `:3000` + API `:8000`. Docker/GHCR is the Release publish path (issue #7) — local pull/run only.
 
 ---
 
@@ -374,7 +433,7 @@ These are S4 / later. A PR that makes any of them **required** for the judge pat
 
 - Multi-user auth
 - Privacy Policy / ToS for strangers
-- Public k8s / GHCR / Cloudflare ingress
+- Public k8s / Cloudflare ingress (a **local** GHCR image for `docker compose` / `docker run` is in-scope; hosted SaaS is not)
 - S1 chat tree (orchestrator + specialists) unless Scope opens stretch
 
 Notbook S0 is a local study harness, not a hosted product.
