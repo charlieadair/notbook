@@ -68,6 +68,7 @@ This mock is **not** real OCR, retrieval, or grounded generation. Filenames cont
 ## Empty and error states
 
 - OCR / extract failed on a source (status + re-upload guidance)
+- Upload timeout / network / extract failure — one error + Try again (Uploading… cannot stick forever)
 - No chunks yet / vault empty
 - Topics not confirmed (pretest CTA blocked)
 - `409 { error: "topics_unconfirmed" }` on pretest → confirm topics

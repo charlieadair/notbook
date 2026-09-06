@@ -1,10 +1,11 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { useApi } from "../api/ApiContext";
 import type { Source } from "../api/types";
 import { Banner } from "../components/Banner";
 import { ExtractBadge } from "../components/ExtractBadge";
 import { errorMessage } from "../lib/format";
+import { sourceUploadFeedback, uploadFailureMessage } from "../lib/upload";
 
 type Ctx = { notebookId: string };
 
@@ -19,6 +20,7 @@ export function Upload() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
     const next = await api.listSources(notebookId);
@@ -63,11 +65,13 @@ export function Upload() {
     setNote(null);
     try {
       const source = await api.uploadSource(notebookId, file);
-      setNote(`Added ${source.filename}.`);
+      const feedback = sourceUploadFeedback(source);
+      if (feedback.error) setError(feedback.error);
+      if (feedback.note) setNote(feedback.note);
       input.value = "";
       await refresh();
     } catch (err) {
-      setError(errorMessage(err));
+      setError(uploadFailureMessage(err));
     } finally {
       setBusy(false);
     }
@@ -87,14 +91,21 @@ export function Upload() {
         filename: pasteName.trim() || undefined,
         text: paste,
       });
-      setNote(`Added ${source.filename}.`);
+      const feedback = sourceUploadFeedback(source);
+      if (feedback.error) setError(feedback.error);
+      if (feedback.note) setNote(feedback.note);
       setPaste("");
       await refresh();
     } catch (err) {
-      setError(errorMessage(err));
+      setError(uploadFailureMessage(err));
     } finally {
       setBusy(false);
     }
+  }
+
+  function onRetry() {
+    setError(null);
+    fileInputRef.current?.focus();
   }
 
   const failed = sources.filter((s) => s.extract_status === "failed");
@@ -108,10 +119,17 @@ export function Upload() {
         <p className="lede">One file or paste at a time. Then inspect what actually landed in the vault.</p>
       </header>
 
-      {error ? <Banner tone="error">{error}</Banner> : null}
+      {error ? (
+        <Banner tone="error">
+          <p>{error}</p>
+          <button type="button" className="btn" onClick={onRetry} disabled={busy}>
+            Try again
+          </button>
+        </Banner>
+      ) : null}
       {note ? <Banner tone="ok">{note}</Banner> : null}
       {pending ? <Banner>Extract still running on at least one source. This list refreshes on its own.</Banner> : null}
-      {failed.length > 0 ? (
+      {failed.length > 0 && !error ? (
         <Banner tone="error">
           OCR / extract failed for {failed.map((s) => s.filename).join(", ")}. Try a clearer photo, or re-upload as PDF /
           markdown / pasted text. Failed sources stay listed so consumption is visible.
@@ -124,7 +142,7 @@ export function Upload() {
         <form onSubmit={onUpload} className="stack">
           <div className="field">
             <label htmlFor="file">File</label>
-            <input id="file" name="file" type="file" accept={ACCEPT} />
+            <input id="file" name="file" type="file" accept={ACCEPT} ref={fileInputRef} />
           </div>
           <button className="btn btn-primary" type="submit" disabled={busy}>
             {busy ? "Uploading…" : "Upload file"}

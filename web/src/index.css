@@ -295,6 +295,14 @@ textarea {
   border-color: #b7d4c3;
 }
 
+.banner p {
+  margin: 0 0 0.65rem;
+}
+
+.banner p:last-child {
+  margin-bottom: 0;
+}
+
 .chunk {
   white-space: pre-wrap;
   background: #f7f3ea;

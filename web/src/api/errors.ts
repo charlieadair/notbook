@@ -43,6 +43,11 @@ export class ApiError extends Error {
   get isUnavailable(): boolean {
     return this.isNotFound || this.status === 501;
   }
+
+  /** Client aborted POST /sources after UPLOAD_TIMEOUT_MS, or a 408 from the wire. */
+  get isUploadTimeout(): boolean {
+    return this.status === 408 || normalizeCode(this.code) === "uploadtimeout";
+  }
 }
 
 function normalizeCode(code: string): string {
@@ -51,6 +56,11 @@ function normalizeCode(code: string): string {
 
 export function isApiError(err: unknown): err is ApiError {
   return err instanceof ApiError;
+}
+
+export function isAbortError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  return (err as { name?: string }).name === "AbortError";
 }
 
 export async function apiErrorFromResponse(res: Response): Promise<ApiError> {
