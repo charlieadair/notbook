@@ -5,22 +5,20 @@ Release smoke for the Web UI. Contract: [`SPEC.md`](../SPEC.md) §§5, 9–10, 1
 ## Start
 
 ```bash
-# Terminal A — Backend (vault). Use whatever Backend documents.
-# Expected default: http://127.0.0.1:8000  with /api/v1
+# Terminal A — Backend vault + Study-logic (merged on :8000 /api/v1)
+cd backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+uvicorn app.main:app --reload --port 8000
 
-# Terminal B — Study-logic if it is a separate process (PR #1 defaults to :3000).
-# If Backend already mounts study routes, skip this.
-
-# Terminal C — Web
+# Terminal B — Web on DEMO port 3000
 cd web
 npm install
-# Point at Backend's /api/v1 prefix (default) or Study-logic with no prefix:
-#   VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1
-#   VITE_API_BASE_URL=http://127.0.0.1:3000
+# default: VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. No account. If the home screen says the API is unreachable, fix the base URL or start Backend — do not use `VITE_USE_MOCK=1` for the judge path.
+Open `http://127.0.0.1:3000`. No account. If the home screen says the API is unreachable, start Backend — do not use `VITE_USE_MOCK=1` for the judge path.
 
 ## Click path (~60s)
 
@@ -46,5 +44,8 @@ Open `http://127.0.0.1:5173`. No account. If the home screen says the API is unr
 
 ## API notes for this path
 
-Pretest: `POST /notebooks/{id}/quizzes/pretest` (fallback `POST /notebooks/{id}/quizzes` if that is what landed).  
-409 → nudge to confirm topics. 422 → explain weak/empty vault; do not invent items.
+Pretest: `POST /notebooks/{id}/quizzes` only.  
+Ingest: `POST /notebooks/{id}/sources` (multipart `file` or JSON `{filename?, text}`).  
+Chunks: `GET /sources/{id}/chunks` and `GET /chunks/{id}`.  
+409 `{ error: "topics_unconfirmed" | "TopicsUnconfirmed" }` → nudge to confirm topics.  
+422 `{ error: "insufficient_evidence" | "InsufficientEvidence" }` → explain weak/empty vault; do not invent items.

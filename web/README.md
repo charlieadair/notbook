@@ -14,7 +14,7 @@ Vite + React + TypeScript + React Router. Plain CSS.
 cd web
 npm install
 cp .env.example .env   # optional; defaults work for local Backend
-npm run dev            # http://127.0.0.1:5173
+npm run dev            # http://127.0.0.1:3000
 ```
 
 ```bash
@@ -34,12 +34,12 @@ Set `VITE_API_BASE_URL` to the API prefix the servers actually serve.
 
 The client always appends paths such as `/notebooks`, `/health`, `/chunks/:id`. Include `/api/v1` in the base URL when Backend mounts there.
 
-Vault routes match Backend PR #3 OpenAPI (`GET/POST /api/v1/notebooks`, upload/paste, sources, chunks, retrieve, `{status:"ok"}` health). Study routes match Study-logic PR #1.
+Routes match main’s OpenAPI (`backend/docs/openapi.json`) plus Study-logic mounted at `/api/v1` on Backend `:8000`.
 
 1. Start Backend (vault + ingest) on the host/port it documents — expected default `http://127.0.0.1:8000`.
 2. Start Study-logic if it is a separate process, or use the combined Study API if Backend fronts those routes.
 3. `cd web && npm run dev`
-4. Open `http://127.0.0.1:5173` — no login.
+4. Open `http://127.0.0.1:3000` — no login.
 
 Health: the home screen calls `GET {VITE_API_BASE_URL}/health`.
 
@@ -74,11 +74,13 @@ This mock is **not** real OCR, retrieval, or grounded generation. Filenames cont
 
 ## Client contract
 
-Typed client in `src/api/`. Paths match the S0 sketch and Study-logic PR #1:
+Typed client in `src/api/`. Paths match main OpenAPI + Study-logic on `/api/v1`:
 
-- Vault: `POST/GET /notebooks`, upload, paste, sources, chunks, `GET /chunks/:id`, retrieve, health
-- Study: topics propose/confirm/list, **`POST /notebooks/:id/quizzes/pretest`** with fallback to `POST /notebooks/:id/quizzes` on 404, attempts, scoreboard
+- Vault: `POST/GET /notebooks`, **`POST /notebooks/:id/sources`** (multipart `file` or JSON paste), `GET /notebooks/:id/sources`, `GET /sources/:id/chunks`, `GET /chunks/:id`, retrieve, health
+- Study: topics propose/confirm/list, **`POST /notebooks/:id/quizzes`**, `POST /quizzes/:id/attempts`, scoreboard
 
-Response envelopes are normalized (`[]` or `{ topics }`, `{ quiz, items }`, etc.).
+Gates: **409** `{ error: "TopicsUnconfirmed" | "topics_unconfirmed" }`, **422** `{ error: "InsufficientEvidence" | "insufficient_evidence" }`.
+
+Response envelopes are normalized (`[]` or `{ topics }`, `{ quiz, items }`, `{ attempt, scores }` or `{ attempt, scoreboard }`).
 
 Judge click-path: [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md).

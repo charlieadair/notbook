@@ -168,11 +168,14 @@ export function toTopicScore(raw: unknown): TopicScore {
 
 export function toGradeAttemptResult(raw: unknown): GradeAttemptResult {
   const rec = asRecord(raw);
+  const scoreboard = asRecord(rec.scoreboard);
   return {
     attempt: toAttempt(rec.attempt ?? raw),
-    scores: unwrapList<unknown>(rec.scores ?? rec.topic_scores, ["scores", "topic_scores", "topics"]).map(
-      toTopicScore,
-    ),
+    scores: unwrapList<unknown>(rec.scores ?? rec.topic_scores ?? scoreboard.topics ?? rec.scoreboard, [
+      "scores",
+      "topic_scores",
+      "topics",
+    ]).map(toTopicScore),
   };
 }
 

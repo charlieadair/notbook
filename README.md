@@ -71,7 +71,7 @@ Self-hosted screens live in [`web/`](web/): notebooks, upload, vault inspect, to
 cd web
 npm install
 # VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1   # default; point at local Backend
-npm run dev    # http://127.0.0.1:5173
+npm run dev    # http://127.0.0.1:3000
 ```
 
 Judge click-path: [`web/DEMO_SCRIPT.md`](web/DEMO_SCRIPT.md). Details and mock toggle: [`web/README.md`](web/README.md).

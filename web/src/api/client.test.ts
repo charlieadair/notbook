@@ -11,38 +11,33 @@ function jsonResponse(status: number, body: unknown): Response {
 }
 
 describe("HttpStudyApi.createPretest", () => {
-  it("prefers /quizzes/pretest and falls back to /quizzes on 404", async () => {
+  it("POSTs /notebooks/:id/quizzes only", async () => {
     const fetchFn = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-      if (url.endsWith("/quizzes/pretest")) {
-        return jsonResponse(404, { error: "NotFound", message: "no pretest route" });
-      }
-      if (url.endsWith("/quizzes")) {
-        return jsonResponse(200, {
-          quiz: { id: "q1", notebook_id: "nb", kind: "pretest", item_ids: ["i1"], created_at: "t" },
-          items: [
-            {
-              id: "i1",
-              quiz_id: "q1",
-              stem: "Stem",
-              choices: [{ id: "c", text: "A" }],
-              citation_chunk_ids: ["chk"],
-            },
-          ],
-        });
-      }
-      return jsonResponse(500, { error: "unexpected", message: url });
+      expect(url).toBe("http://127.0.0.1:8000/api/v1/notebooks/nb/quizzes");
+      return jsonResponse(200, {
+        quiz: { id: "q1", notebook_id: "nb", kind: "pretest", item_ids: ["i1"], created_at: "t" },
+        items: [
+          {
+            id: "i1",
+            quiz_id: "q1",
+            stem: "Stem",
+            choices: [{ id: "c", text: "A" }],
+            citation_chunk_ids: ["chk"],
+          },
+        ],
+      });
     });
 
     const api = new HttpStudyApi({ baseUrl: "http://127.0.0.1:8000/api/v1", fetchFn });
     const quiz = await api.createPretest("nb");
     expect(quiz.quiz.id).toBe("q1");
-    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 
   it("does not swallow a 409 topics gate", async () => {
     const fetchFn = vi.fn(async () =>
-      jsonResponse(409, { error: "TopicsUnconfirmed", message: "Confirm every topic" }),
+      jsonResponse(409, { error: "topics_unconfirmed", message: "Confirm every topic" }),
     );
     const api = new HttpStudyApi({ baseUrl: "/api/v1", fetchFn });
     await expect(api.createPretest("nb")).rejects.toMatchObject({
@@ -50,6 +45,31 @@ describe("HttpStudyApi.createPretest", () => {
       isTopicsUnconfirmed: true,
     });
     expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("uploads and pastes via POST /notebooks/:id/sources", async () => {
+    const urls: string[] = [];
+    const fetchFn = vi.fn(async (input: RequestInfo | URL) => {
+      urls.push(String(input));
+      return jsonResponse(201, { id: "s1", filename: "a.pdf", extract_status: "ok", chunk_count: 1 });
+    });
+    const api = new HttpStudyApi({ baseUrl: "http://127.0.0.1:8000/api/v1", fetchFn });
+    await api.uploadSource("nb", new File(["x"], "a.pdf"));
+    await api.pasteSource("nb", { text: "hello there this is pasted notes." });
+    expect(urls).toEqual([
+      "http://127.0.0.1:8000/api/v1/notebooks/nb/sources",
+      "http://127.0.0.1:8000/api/v1/notebooks/nb/sources",
+    ]);
+  });
+
+  it("lists chunks at GET /sources/:id/chunks", async () => {
+    const fetchFn = vi.fn(async (input: RequestInfo | URL) => {
+      expect(String(input)).toBe("http://127.0.0.1:8000/api/v1/sources/src1/chunks");
+      return jsonResponse(200, [{ id: "c1", text: "chunk" }]);
+    });
+    const api = new HttpStudyApi({ baseUrl: "http://127.0.0.1:8000/api/v1", fetchFn });
+    const chunks = await api.listChunks("nb", "src1");
+    expect(chunks[0].id).toBe("c1");
   });
 });
 

@@ -14,24 +14,18 @@ export class ApiError extends Error {
   }
 
   get isTopicsUnconfirmed(): boolean {
-    return (
-      this.status === 409 ||
-      normalizeCode(this.code) === "topicsunconfirmed" ||
-      normalizeCode(this.code) === "topics_unconfirmed"
-    );
+    const code = normalizeCode(this.code);
+    return this.status === 409 || code === "topicsunconfirmed" || code === "topics_unconfirmed";
   }
 
   get isInsufficientEvidence(): boolean {
-    return (
-      this.status === 422 ||
-      normalizeCode(this.code) === "insufficientevidence" ||
-      normalizeCode(this.code) === "insufficient_evidence"
-    );
+    const code = normalizeCode(this.code);
+    return this.status === 422 || code === "insufficientevidence" || code === "insufficient_evidence";
   }
 }
 
 function normalizeCode(code: string): string {
-  return code.replace(/[\s-]/g, "").toLowerCase();
+  return code.replace(/[\s_-]/g, "").toLowerCase();
 }
 
 export function isApiError(err: unknown): err is ApiError {
