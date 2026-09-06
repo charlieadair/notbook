@@ -850,15 +850,9 @@
             "title": "Score"
           },
           "source_filename": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source Filename"
+            "type": "string",
+            "title": "Source Filename",
+            "default": ""
           }
         },
         "type": "object",
@@ -869,7 +863,8 @@
           "locator",
           "score"
         ],
-        "title": "RetrieveChunk"
+        "title": "RetrieveChunk",
+        "description": "Study-logic vault chunk \u2014 field names must stay exact."
       },
       "RetrieveIn": {
         "properties": {

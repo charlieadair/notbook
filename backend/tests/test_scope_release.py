@@ -116,7 +116,7 @@ def test_retrieve_callable_same_shape_as_http(client, app, notebook_id):
     hits = app.state.retrieve(notebook_id, "spectral theorem", 8)
     assert hits
     first = hits[0]
-    assert set(first) >= {
+    assert set(first) == {
         "id",
         "source_id",
         "text",
@@ -128,4 +128,11 @@ def test_retrieve_callable_same_shape_as_http(client, app, notebook_id):
     assert first["locator"] is not None
     assert first["score"] > 0
     assert first["source_filename"]
+
+    http = client.post(
+        f"/api/v1/notebooks/{notebook_id}/retrieve",
+        json={"query": "spectral theorem", "top_k": 8},
+    )
+    assert http.status_code == 200
+    assert http.json()["chunks"] == hits
     assert app.state.study_logic_mounted is False

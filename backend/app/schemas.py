@@ -97,12 +97,14 @@ class RetrieveIn(BaseModel):
 
 
 class RetrieveChunk(BaseModel):
+    """Study-logic vault chunk — field names must stay exact."""
+
     id: str
     source_id: str
     text: str
     locator: dict[str, Any]
     score: float
-    source_filename: str | None = None
+    source_filename: str = ""
 
 
 class RetrieveOut(BaseModel):
