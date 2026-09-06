@@ -1,0 +1,100 @@
+import { describe, expect, it } from "vitest";
+import { ApiError, parseErrorBody } from "./errors";
+import {
+  toChunk,
+  toGeneratedQuiz,
+  toGradeAttemptResult,
+  toHealth,
+  toNotebooks,
+  toScoreboard,
+  toSource,
+  toTopics,
+} from "./normalize";
+
+describe("normalize", () => {
+  it("unwraps notebook lists from several envelopes", () => {
+    expect(toNotebooks([{ id: "a", title: "Bio" }])).toEqual([
+      { id: "a", title: "Bio", created_at: undefined },
+    ]);
+    expect(toNotebooks({ notebooks: [{ id: "b", name: "Chem" }] })[0].title).toBe("Chem");
+  });
+
+  it("maps extract status aliases onto ok | failed | pending", () => {
+    expect(toSource({ id: "1", filename: "a.pdf", extract_status: "success", chunk_count: 3 }).extract_status).toBe(
+      "ok",
+    );
+    expect(toSource({ id: "2", filename: "b.png", status: "ocr_failed" }).extract_status).toBe("failed");
+    expect(toSource({ id: "3", filename: "c.md", extract_status: "processing" }).extract_status).toBe("pending");
+  });
+
+  it("reads topics from a { topics } envelope", () => {
+    const topics = toTopics({
+      topics: [{ id: "t1", notebook_id: "n", name: "Mitosis", confirmed: true, sort_order: 0 }],
+    });
+    expect(topics).toHaveLength(1);
+    expect(topics[0].confirmed).toBe(true);
+  });
+
+  it("accepts quiz + items or a flat quiz object", () => {
+    const wrapped = toGeneratedQuiz({
+      quiz: { id: "q1", notebook_id: "n", kind: "pretest", item_ids: ["i1"], created_at: "t" },
+      items: [
+        {
+          id: "i1",
+          quiz_id: "q1",
+          stem: "Why?",
+          choices: [{ id: "c1", text: "A" }],
+          citation_chunk_ids: ["chk1"],
+        },
+      ],
+    });
+    expect(wrapped.quiz.id).toBe("q1");
+    expect(wrapped.items[0].citation_chunk_ids).toEqual(["chk1"]);
+
+    const flat = toGeneratedQuiz({
+      id: "q2",
+      notebook_id: "n",
+      items: [{ id: "i2", question: "What?", options: ["Yes"], citation_chunk_ids: ["chk2"] }],
+    });
+    expect(flat.quiz.id).toBe("q2");
+    expect(flat.items[0].stem).toBe("What?");
+    expect(flat.items[0].choices[0].text).toBe("Yes");
+  });
+
+  it("maps Backend health {status:ok} and nested chunk.source", () => {
+    expect(toHealth({ status: "ok", service: "notbook-study-api" })).toEqual({
+      ok: true,
+      service: "notbook-study-api",
+    });
+    const chunk = toChunk({
+      id: "c1",
+      text: "hello",
+      source: { filename: "notes.pdf" },
+      locator: { page: 2 },
+    });
+    expect(chunk.source_label).toBe("notes.pdf");
+  });
+
+  it("reads attempt + scores and scoreboard window defaults", () => {
+    const graded = toGradeAttemptResult({
+      attempt: { id: "a", item_id: "i", quiz_id: "q", notebook_id: "n", selected_choice_id: "c", correct: true },
+      scores: [{ topic_id: "t", correct_rate: 0.5, severity: "mild" }],
+    });
+    expect(graded.attempt.correct).toBe(true);
+    expect(graded.scores[0].severity).toBe("mild");
+
+    const board = toScoreboard({ topics: [{ topic_id: "t", correct_rate: 1, proficient: true }] });
+    expect(board.window).toBe(20);
+    expect(board.proficiency_bar).toBe(0.8);
+  });
+});
+
+describe("ApiError", () => {
+  it("classifies 409 / TopicsUnconfirmed and 422 / InsufficientEvidence", () => {
+    const gate = new ApiError(409, "TopicsUnconfirmed", "confirm first");
+    const thin = new ApiError(422, "InsufficientEvidence", "no chunks");
+    expect(gate.isTopicsUnconfirmed).toBe(true);
+    expect(thin.isInsufficientEvidence).toBe(true);
+    expect(parseErrorBody({ error: "TopicsUnconfirmed", message: "x" }).code).toBe("TopicsUnconfirmed");
+  });
+});
