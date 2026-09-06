@@ -30,10 +30,11 @@ curl -sf -X POST "$BASE/api/v1/notebooks/$NOTEBOOK/sources" \
   -F "file=@fixtures/handwritten_scan.png;type=image/png" | python3 -m json.tool
 
 echo "== list sources =="
-curl -sf "$BASE/api/v1/notebooks/$NOTEBOOK/sources" | python3 -m json.tool
-python3 - << PY
-import json, urllib.request
-rows = json.load(urllib.request.urlopen("$BASE/api/v1/notebooks/$NOTEBOOK/sources"))
+SOURCES=$(curl -sf "$BASE/api/v1/notebooks/$NOTEBOOK/sources")
+echo "$SOURCES" | python3 -m json.tool
+python3 -c '
+import json, sys
+rows = json.loads(sys.argv[1])
 types = {r["type"] for r in rows}
 assert types == {"pdf", "paste", "image"}, types
 for r in rows:
@@ -41,40 +42,36 @@ for r in rows:
     if r["type"] == "image" and r["extract_status"] == "failed":
         assert r["chunk_count"] == 0 and r.get("error")
 print("sources ok:", [(r["type"], r["extract_status"], r["chunk_count"]) for r in rows])
-PY
+' "$SOURCES"
 
-SOURCE=$(python3 - << PY
-import json, urllib.request
-rows = json.load(urllib.request.urlopen("$BASE/api/v1/notebooks/$NOTEBOOK/sources"))
+SOURCE=$(python3 -c '
+import json, sys
+rows = json.loads(sys.argv[1])
 print(next(s["id"] for s in rows if s["chunk_count"] > 0))
-PY)
+' "$SOURCES")
 
 echo "== list chunks + get chunk =="
-curl -sf "$BASE/api/v1/sources/$SOURCE/chunks" | python3 -m json.tool
-CHUNK=$(python3 - << PY
-import json, urllib.request
-rows = json.load(urllib.request.urlopen("$BASE/api/v1/sources/$SOURCE/chunks"))
+CHUNKS=$(curl -sf "$BASE/api/v1/sources/$SOURCE/chunks")
+echo "$CHUNKS" | python3 -m json.tool
+CHUNK=$(python3 -c '
+import json, sys
+rows = json.loads(sys.argv[1])
 assert rows and rows[0]["id"] and rows[0].get("locator") is not None
 print(rows[0]["id"])
-PY)
+' "$CHUNKS")
 curl -sf "$BASE/api/v1/chunks/$CHUNK" | python3 -m json.tool
 
 echo "== retrieve =="
-curl -sf -X POST "$BASE/api/v1/notebooks/$NOTEBOOK/retrieve" \
+RETRIEVED=$(curl -sf -X POST "$BASE/api/v1/notebooks/$NOTEBOOK/retrieve" \
   -H 'content-type: application/json' \
-  -d '{"query":"spectral theorem","top_k":8}' | python3 -m json.tool
-python3 - << PY
-import json, urllib.request
-req = urllib.request.Request(
-    "$BASE/api/v1/notebooks/$NOTEBOOK/retrieve",
-    data=b'{"query":"spectral theorem","top_k":8}',
-    headers={"content-type": "application/json"},
-    method="POST",
-)
-hits = json.load(urllib.request.urlopen(req))["chunks"]
+  -d '{"query":"spectral theorem","top_k":8}')
+echo "$RETRIEVED" | python3 -m json.tool
+python3 -c '
+import json, sys
+hits = json.loads(sys.argv[1])["chunks"]
 assert hits, "expected citable chunks"
 assert all(h.get("id") and h.get("score", 0) > 0 for h in hits)
 print("retrieve ok:", len(hits), "chunks")
-PY
+' "$RETRIEVED"
 
 echo "SMOKE_OK"
