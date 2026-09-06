@@ -384,6 +384,45 @@ textarea {
   color: var(--muted);
 }
 
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.message {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+  background: #fff;
+}
+
+.message + .message {
+  margin-top: 0;
+}
+
+.message p:last-child {
+  margin-bottom: 0;
+}
+
+.message-user {
+  background: #f7f3ea;
+}
+
+.message-assistant,
+.message-system {
+  background: #fff;
+}
+
+.message-handoff {
+  background: #f1f8f3;
+  border-color: #b7d4c3;
+}
+
+.message-active {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

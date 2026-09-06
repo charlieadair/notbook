@@ -1,28 +1,41 @@
 import { API_BASE_URL, joinUrl } from "../lib/config";
-import { apiErrorFromResponse } from "./errors";
+import { emptySpawnOffer } from "../lib/spawn";
+import { apiErrorFromResponse, isApiError } from "./errors";
 import {
+  toChat,
+  toChatMessage,
+  toChatMessages,
+  toChats,
+  toChunk,
   toChunks,
   toGeneratedQuiz,
   toGradeAttemptResult,
+  toHandoff,
+  toHandoffs,
   toHealth,
   toNotebook,
   toNotebooks,
   toScoreboard,
   toSource,
   toSources,
+  toSpawnOffer,
   toTopics,
-  toChunk,
 } from "./normalize";
 import type {
+  Chat,
+  ChatMessage,
   Chunk,
   ConfirmTopicsInput,
   GeneratedQuiz,
   GradeAttemptInput,
   GradeAttemptResult,
+  Handoff,
   Health,
   Notebook,
   Scoreboard,
+  SendChatMessageInput,
   Source,
+  SpawnOffer,
   StudyApi,
   Topic,
 } from "./types";
@@ -138,6 +151,86 @@ export class HttpStudyApi implements StudyApi {
 
   async getScoreboard(notebookId: string): Promise<Scoreboard> {
     return toScoreboard(await this.request<unknown>(`/notebooks/${notebookId}/scoreboard`));
+  }
+
+  async getSpawnOffer(notebookId: string): Promise<SpawnOffer> {
+    const data = await this.requestOptional<unknown>(`/notebooks/${notebookId}/spawn-offer`);
+    return data === undefined ? emptySpawnOffer(notebookId) : toSpawnOffer(data, notebookId);
+  }
+
+  async listChats(notebookId: string): Promise<Chat[]> {
+    const data = await this.requestOptional<unknown>(`/notebooks/${notebookId}/chats`);
+    return data === undefined ? [] : toChats(data);
+  }
+
+  async getOrCreateOrchestrator(notebookId: string): Promise<Chat | null> {
+    const data = await this.requestOptional<unknown>(`/notebooks/${notebookId}/chats/orchestrator`, {
+      method: "POST",
+    });
+    if (data === undefined) return null;
+    const chats = toChats(data);
+    if (chats.length) return chats.find((c) => c.kind === "orchestrator") ?? chats[0];
+    const chat = toChat(data);
+    return chat.id ? chat : null;
+  }
+
+  async getChat(chatId: string, notebookId?: string): Promise<Chat | null> {
+    const data = await this.requestOptional<unknown>(`/chats/${chatId}`);
+    if (data !== undefined) {
+      const chat = toChat(data);
+      if (chat.id) return chat;
+    }
+    if (!notebookId) return null;
+    const listed = await this.listChats(notebookId);
+    return listed.find((c) => c.id === chatId) ?? null;
+  }
+
+  async createSpecialists(notebookId: string, topicIds: string[]): Promise<Chat[]> {
+    const data = await this.request<unknown>(`/notebooks/${notebookId}/chats/specialists`, {
+      method: "POST",
+      json: { topic_ids: topicIds },
+    });
+    const chats = toChats(data);
+    if (chats.length) return chats;
+    const chat = toChat(data);
+    return chat.id ? [chat] : [];
+  }
+
+  async listChatMessages(chatId: string): Promise<ChatMessage[]> {
+    const data = await this.requestOptional<unknown>(`/chats/${chatId}/messages`);
+    return data === undefined ? [] : toChatMessages(data);
+  }
+
+  async sendChatMessage(chatId: string, input: SendChatMessageInput): Promise<ChatMessage | null> {
+    const data = await this.requestOptional<unknown>(`/chats/${chatId}/messages`, {
+      method: "POST",
+      json: { content: input.content, role: input.role ?? "user" },
+    });
+    if (data === undefined) return null;
+    const message = toChatMessage(data);
+    return message.id || message.content ? message : null;
+  }
+
+  async closeChat(chatId: string): Promise<Handoff> {
+    const data = await this.request<unknown>(`/chats/${chatId}/close`, { method: "POST" });
+    return toHandoff(data);
+  }
+
+  async listHandoffs(notebookId: string): Promise<Handoff[]> {
+    const data = await this.requestOptional<unknown>(`/notebooks/${notebookId}/handoffs`);
+    return data === undefined ? [] : toHandoffs(data);
+  }
+
+  private async requestOptional<T>(
+    path: string,
+    init: RequestInit & { json?: unknown } = {},
+  ): Promise<T | undefined> {
+    try {
+      return await this.request<T>(path, init);
+    } catch (err) {
+      if (isApiError(err) && err.isUnavailable) return undefined;
+      throw err;
+    }
   }
 
   private async request<T>(

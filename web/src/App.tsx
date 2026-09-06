@@ -1,8 +1,10 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { Home } from "./screens/Home";
 import { NotebookLayout } from "./screens/NotebookLayout";
+import { Orchestrator } from "./screens/Orchestrator";
 import { Quiz } from "./screens/Quiz";
 import { Scoreboard } from "./screens/Scoreboard";
+import { SpecialistChat } from "./screens/SpecialistChat";
 import { Topics } from "./screens/Topics";
 import { Upload } from "./screens/Upload";
 import { Vault } from "./screens/Vault";
@@ -19,6 +21,8 @@ export function App() {
           <Route path="topics" element={<Topics />} />
           <Route path="quiz" element={<Quiz />} />
           <Route path="scoreboard" element={<Scoreboard />} />
+          <Route path="orchestrator" element={<Orchestrator />} />
+          <Route path="chats/:chatId" element={<SpecialistChat />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

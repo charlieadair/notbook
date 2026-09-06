@@ -33,6 +33,9 @@ Open `http://127.0.0.1:3000`. No account. Full DEMO needs Backend vault (PR #3, 
 4. **Propose + confirm topics** — Topics screen. **Propose topics**, edit a name if you want, **Confirm these topics**. The **Take pretest** button stays disabled until confirmed. (Or paste an explicit list and **Use this list** — no forced re-propose.)
 5. **Take pretest with Show citations** — start the pretest. Answer at least one item. Click **Show citations**. Chunk ids resolve via `GET /chunks/:id` to source text. Then finish the quiz.
 6. **See scoreboard** — per-topic correct rate, proficient at 80%, severity `ok | mild | severe`.
+7. **S1 focus offer (stretch / demo bar)** — if Study-logic S1 is mounted (or `VITE_USE_MOCK=1`), the scoreboard may offer at most **2** specialist chats after gaps. Accept some/none (offer, not auto-windows). Open a specialist, optionally send a message, **Close & hand off**. Confirm the summary lands on **Focus / orchestrator** while the holistic scoreboard (including mild gaps) stays visible.
+
+S0 steps 1–6 must stay green even when S1 routes 404.
 
 ## Fail the smoke if
 
@@ -42,6 +45,9 @@ Open `http://127.0.0.1:3000`. No account. Full DEMO needs Backend vault (PR #3, 
 - Items have no citations, or Show citations cannot load chunk text
 - Scoreboard is empty after a submitted attempt
 - The UI invents quiz items locally instead of calling the Study API
+- S0 empty states (no notebooks / no chunks / unconfirmed topics / empty scoreboard) regress
+- S1 spawn opens more than 2 specialists by default, or auto-opens windows without an offer
+- Closing a specialist does not show a handoff on the orchestrator (when S1 routes or mock are present)
 
 ## API notes for this path
 

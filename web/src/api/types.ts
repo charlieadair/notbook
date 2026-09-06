@@ -133,6 +133,60 @@ export type ApiErrorBody = {
   detail?: unknown;
 };
 
+/** S1 chat tree — Study-logic issue #22. Shapes stay flexible until OpenAPI lands. */
+export const DEFAULT_MAX_SPAWN = 2;
+
+export type ChatKind = "orchestrator" | "specialist";
+export type ChatStatus = "open" | "closed";
+export type ChatMessageRole = "user" | "assistant" | "handoff" | "system";
+export type SpawnSeverity = "mild" | "severe";
+
+export type Chat = {
+  id: string;
+  notebook_id: string;
+  kind: ChatKind;
+  topic_ids: string[];
+  status: ChatStatus;
+  created_at: string;
+  closed_at?: string;
+};
+
+export type ChatMessage = {
+  id: string;
+  chat_id: string;
+  role: ChatMessageRole;
+  content: string;
+  created_at: string;
+  citation_chunk_ids?: string[];
+};
+
+export type SpawnCandidate = {
+  topic_id: string;
+  severity: SpawnSeverity;
+  reason: string;
+};
+
+export type SpawnOffer = {
+  notebook_id: string;
+  candidates: SpawnCandidate[];
+  max_spawn: number;
+};
+
+export type Handoff = {
+  id: string;
+  from_chat_id: string;
+  to_chat_id: string;
+  topic_ids: string[];
+  summary: string;
+  scoreboard_snapshot: TopicScore[];
+  created_at: string;
+};
+
+export type SendChatMessageInput = {
+  content: string;
+  role?: ChatMessageRole;
+};
+
 export interface StudyApi {
   health(): Promise<Health>;
   listNotebooks(): Promise<Notebook[]>;
@@ -150,4 +204,23 @@ export interface StudyApi {
   createPretest(notebookId: string): Promise<GeneratedQuiz>;
   submitAttempt(quizId: string, input: GradeAttemptInput): Promise<GradeAttemptResult>;
   getScoreboard(notebookId: string): Promise<Scoreboard>;
+
+  /** GET /notebooks/:id/spawn-offer — empty offer on 404/501. */
+  getSpawnOffer(notebookId: string): Promise<SpawnOffer>;
+  /** GET /notebooks/:id/chats — [] on 404/501. */
+  listChats(notebookId: string): Promise<Chat[]>;
+  /** POST /notebooks/:id/chats/orchestrator — idempotent get-or-create; null on 404/501. */
+  getOrCreateOrchestrator(notebookId: string): Promise<Chat | null>;
+  /** GET /chats/:id, else find in notebook chat list; null on 404/501. */
+  getChat(chatId: string, notebookId?: string): Promise<Chat | null>;
+  /** POST /notebooks/:id/chats/specialists `{ topic_ids }`. */
+  createSpecialists(notebookId: string, topicIds: string[]): Promise<Chat[]>;
+  /** GET /chats/:id/messages — [] on 404/501. */
+  listChatMessages(chatId: string): Promise<ChatMessage[]>;
+  /** POST /chats/:id/messages — null on 404/501. */
+  sendChatMessage(chatId: string, input: SendChatMessageInput): Promise<ChatMessage | null>;
+  /** POST /chats/:id/close → Handoff into orchestrator. */
+  closeChat(chatId: string): Promise<Handoff>;
+  /** GET /notebooks/:id/handoffs — [] on 404/501. */
+  listHandoffs(notebookId: string): Promise<Handoff[]>;
 }

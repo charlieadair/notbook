@@ -1,17 +1,24 @@
+import { DEFAULT_MAX_SPAWN } from "./types";
+import { offerFromScoreboard } from "../lib/spawn";
 import { ApiError } from "./errors";
 import type {
   Attempt,
+  Chat,
+  ChatMessage,
   Chunk,
   ConfirmTopicsInput,
   GeneratedQuiz,
   GradeAttemptInput,
   GradeAttemptResult,
+  Handoff,
   Health,
   Notebook,
   Quiz,
   QuizItem,
   Scoreboard,
+  SendChatMessageInput,
   Source,
+  SpawnOffer,
   StudyApi,
   Topic,
   TopicScore,
@@ -25,6 +32,9 @@ type MockState = {
   quizzes: Quiz[];
   items: QuizItem[];
   attempts: Attempt[];
+  chats: Chat[];
+  messages: ChatMessage[];
+  handoffs: Handoff[];
 };
 
 function nowIso(): string {
@@ -51,6 +61,9 @@ export class MockStudyApi implements StudyApi {
     quizzes: [],
     items: [],
     attempts: [],
+    chats: [],
+    messages: [],
+    handoffs: [],
   };
 
   async health(): Promise<Health> {
@@ -238,6 +251,154 @@ export class MockStudyApi implements StudyApi {
 
   async getScoreboard(notebookId: string): Promise<Scoreboard> {
     return { topics: this.scoresFor(notebookId), window: 20, proficiency_bar: 0.8 };
+  }
+
+  async getSpawnOffer(notebookId: string): Promise<SpawnOffer> {
+    await this.getNotebook(notebookId);
+    return offerFromScoreboard(notebookId, this.scoresFor(notebookId), DEFAULT_MAX_SPAWN);
+  }
+
+  async listChats(notebookId: string): Promise<Chat[]> {
+    return this.state.chats.filter((c) => c.notebook_id === notebookId).map((c) => ({ ...c }));
+  }
+
+  async getOrCreateOrchestrator(notebookId: string): Promise<Chat> {
+    await this.getNotebook(notebookId);
+    const existing = this.state.chats.find(
+      (c) => c.notebook_id === notebookId && c.kind === "orchestrator" && c.status === "open",
+    );
+    if (existing) return { ...existing };
+    const chat: Chat = {
+      id: id("chat"),
+      notebook_id: notebookId,
+      kind: "orchestrator",
+      topic_ids: [],
+      status: "open",
+      created_at: nowIso(),
+    };
+    this.state.chats.push(chat);
+    return { ...chat };
+  }
+
+  async getChat(chatId: string, notebookId?: string): Promise<Chat | null> {
+    const found = this.state.chats.find((c) => c.id === chatId && (!notebookId || c.notebook_id === notebookId));
+    return found ? { ...found } : null;
+  }
+
+  async createSpecialists(notebookId: string, topicIds: string[]): Promise<Chat[]> {
+    await this.getNotebook(notebookId);
+    const unique = [...new Set(topicIds.filter(Boolean))];
+    if (!unique.length) {
+      throw new ApiError(400, "BadRequest", "Pick at least one topic for a focus chat");
+    }
+    if (unique.length > DEFAULT_MAX_SPAWN) {
+      throw new ApiError(400, "BadRequest", `Suggest at most ${DEFAULT_MAX_SPAWN} specialist chats`);
+    }
+    const openSpecialists = this.state.chats.filter(
+      (c) => c.notebook_id === notebookId && c.kind === "specialist" && c.status === "open",
+    );
+    if (openSpecialists.length + unique.length > DEFAULT_MAX_SPAWN) {
+      throw new ApiError(409, "TooManySpecialists", "At most two open specialist chats at a time");
+    }
+    await this.getOrCreateOrchestrator(notebookId);
+    const created: Chat[] = unique.map((topicId) => {
+      const chat: Chat = {
+        id: id("chat"),
+        notebook_id: notebookId,
+        kind: "specialist",
+        topic_ids: [topicId],
+        status: "open",
+        created_at: nowIso(),
+      };
+      this.state.chats.push(chat);
+      const topic = this.state.topics.find((t) => t.id === topicId);
+      this.state.messages.push({
+        id: id("msg"),
+        chat_id: chat.id,
+        role: "assistant",
+        content: `Focus chat for ${topic?.name ?? topicId}. Shared scoreboard stays live. Close when you want a handoff back to the orchestrator.`,
+        created_at: nowIso(),
+      });
+      return { ...chat };
+    });
+    return created;
+  }
+
+  async listChatMessages(chatId: string): Promise<ChatMessage[]> {
+    return this.state.messages
+      .filter((m) => m.chat_id === chatId)
+      .map((m) => ({ ...m, citation_chunk_ids: m.citation_chunk_ids ? [...m.citation_chunk_ids] : undefined }));
+  }
+
+  async sendChatMessage(chatId: string, input: SendChatMessageInput): Promise<ChatMessage> {
+    const chat = this.state.chats.find((c) => c.id === chatId);
+    if (!chat) throw new ApiError(404, "NotFound", `Chat not found: ${chatId}`);
+    if (chat.status === "closed") throw new ApiError(409, "ChatClosed", "This focus chat is already closed");
+    const text = input.content.trim();
+    if (!text) throw new ApiError(400, "BadRequest", "Message is empty");
+    const user: ChatMessage = {
+      id: id("msg"),
+      chat_id: chatId,
+      role: input.role ?? "user",
+      content: text,
+      created_at: nowIso(),
+    };
+    this.state.messages.push(user);
+    if (chat.kind === "specialist" && (input.role ?? "user") === "user") {
+      const names = chat.topic_ids.map((tid) => this.state.topics.find((t) => t.id === tid)?.name ?? tid);
+      this.state.messages.push({
+        id: id("msg"),
+        chat_id: chatId,
+        role: "assistant",
+        content: `Noted. This specialist stays scoped to ${names.join(", ") || "the selected topic"}. I will not invent a lecture here — close the chat to send a handoff to the orchestrator.`,
+        created_at: nowIso(),
+      });
+    }
+    return { ...user };
+  }
+
+  async closeChat(chatId: string): Promise<Handoff> {
+    const chat = this.state.chats.find((c) => c.id === chatId);
+    if (!chat) throw new ApiError(404, "NotFound", `Chat not found: ${chatId}`);
+    if (chat.kind !== "specialist") {
+      throw new ApiError(400, "BadRequest", "Close a specialist chat to write a handoff");
+    }
+    const existing = this.state.handoffs.find((h) => h.from_chat_id === chatId);
+    if (existing) return { ...existing, scoreboard_snapshot: existing.scoreboard_snapshot.map((s) => ({ ...s })) };
+    const orchestrator = await this.getOrCreateOrchestrator(chat.notebook_id);
+    chat.status = "closed";
+    chat.closed_at = nowIso();
+    const board = this.scoresFor(chat.notebook_id);
+    const snapshot = board.filter((row) => chat.topic_ids.includes(row.topic_id));
+    const names = chat.topic_ids.map((tid) => this.state.topics.find((t) => t.id === tid)?.name ?? tid);
+    const scoreBits = (snapshot.length ? snapshot : board)
+      .map((row) => `${row.name ?? row.topic_id} ${Math.round(row.correct_rate * 100)}% (${row.severity})`)
+      .join("; ");
+    const handoff: Handoff = {
+      id: id("hoff"),
+      from_chat_id: chat.id,
+      to_chat_id: orchestrator.id,
+      topic_ids: [...chat.topic_ids],
+      summary: `Handoff from focus chat on ${names.join(", ") || "scoped topics"}. Snapshot: ${scoreBits || "no scores yet"}. Shared scoreboard is the source of truth; mild gaps stay on the orchestrator map.`,
+      scoreboard_snapshot: snapshot.length ? snapshot : board,
+      created_at: nowIso(),
+    };
+    this.state.handoffs.push(handoff);
+    this.state.messages.push({
+      id: id("msg"),
+      chat_id: orchestrator.id,
+      role: "handoff",
+      content: handoff.summary,
+      created_at: handoff.created_at,
+    });
+    return { ...handoff, scoreboard_snapshot: handoff.scoreboard_snapshot.map((s) => ({ ...s })) };
+  }
+
+  async listHandoffs(notebookId: string): Promise<Handoff[]> {
+    const chatIds = new Set(this.state.chats.filter((c) => c.notebook_id === notebookId).map((c) => c.id));
+    return this.state.handoffs
+      .filter((h) => chatIds.has(h.to_chat_id) || chatIds.has(h.from_chat_id))
+      .map((h) => ({ ...h, scoreboard_snapshot: h.scoreboard_snapshot.map((s) => ({ ...s })) }));
   }
 
   private addChunks(source: Source, text: string, label: string): void {

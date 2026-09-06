@@ -1,6 +1,8 @@
-# Notbook Web (S0)
+# Notbook Web (S0 + S1)
 
 Self-hosted UI for the S0 study loop: **create notebook → upload → inspect vault → confirm topics → pretest → scoreboard**.
+
+S1 (demo bar): after the scoreboard, an **offer** (not auto-spawn) to open at most **2** specialist chats. Orchestrator keeps the holistic map; close a specialist to land a handoff.
 
 This app does **not** invent quiz pedagogy or vault internals. It calls the local Study API (Backend + Study-logic). No auth.
 
@@ -59,7 +61,9 @@ This mock is **not** real OCR, retrieval, or grounded generation. Filenames cont
 | `/notebooks/:id/vault` | Sources, chunk counts, chunk text |
 | `/notebooks/:id/topics` | Propose / edit / confirm; pretest CTA disabled until confirmed |
 | `/notebooks/:id/quiz` | One MC item at a time; Show citations → `GET /chunks/:id` |
-| `/notebooks/:id/scoreboard` | Per-topic rates, 80% bar, severity |
+| `/notebooks/:id/scoreboard` | Per-topic rates, 80% bar, severity; spawn **offer** if Study-logic returns candidates |
+| `/notebooks/:id/orchestrator` | Holistic scoreboard + handoffs (S1) |
+| `/notebooks/:id/chats/:chatId` | Specialist shell: scoped scores, messages/compose if mounted, **Close & hand off** |
 
 ## Empty and error states
 
@@ -76,6 +80,7 @@ Typed client in `src/api/`. Base `/api/v1`. Vault names match Backend + OpenAPI 
 - Ingest: single `POST /notebooks/:id/sources` — multipart `file` or JSON `{ filename?, text }`
 - Inspect (vault UI): `GET /notebooks/:id/sources`, `GET /sources/:id/chunks`, `GET /chunks/:id`
 - Study: topics propose/confirm/list, `POST /notebooks/:id/quizzes`, `POST /quizzes/:id/attempts`, scoreboard
+- S1 (issue #22; 404/501 → empty, S0 screens stay up): `GET /notebooks/:id/spawn-offer`, `GET|POST /notebooks/:id/chats`, `POST /notebooks/:id/chats/orchestrator`, `POST /notebooks/:id/chats/specialists` `{ topic_ids }`, `GET|POST /chats/:id/messages`, `POST /chats/:id/close`, `GET /notebooks/:id/handoffs`
 
 Retrieve stays on the client for Study-logic; the vault browser uses inspect only.
 
