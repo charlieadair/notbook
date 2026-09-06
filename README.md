@@ -70,13 +70,15 @@ This project is being built with Grok Bot as part of the Student Build Challenge
 
 ## S0 study engine
 
-Challenge target for this repo is **S0 only** (topics, grounded pretest, scoreboard). Study logic lives in [`packages/study-logic`](packages/study-logic) as a **library**. DEMO composition is Web UI **:3000** + Backend **FastAPI :8000** (FastAPI mounts `/api/v1` study routes). Offline fixture smoke binds **127.0.0.1:3001** (`PORT` / `HOST`). This package does not bind :3000.
+Challenge target for this repo is **S0 only** (topics, grounded pretest, scoreboard). DEMO is Web UI **:3000** + one Backend **FastAPI :8000**.
+
+- **DEMO mount:** [`packages/study_logic`](packages/study_logic) — FastAPI router included by Backend on **:8000** `/api/v1` (`install_study_logic` / `create_router` / `from study_logic.api import router`).
+- **TS reference:** [`packages/study-logic`](packages/study-logic) — types, vitest, optional offline smoke on **127.0.0.1:3001**. Not the DEMO API; does not bind :3000.
 
 ```bash
-npm install
+pip install -e 'packages/study_logic[dev]' && python3 -m pytest packages/study_logic
 npm test
 npm run build
-npm start          # offline fixture smoke on PORT (default 3001), not DEMO
+npm start          # offline fixture smoke on 127.0.0.1:3001, not DEMO
 ```
 
-See the package README for the Backend import adapter, `VaultRetrieve` contract, and smoke path. No UI, OCR, or embedding store in this slice.
