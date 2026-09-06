@@ -76,8 +76,8 @@ This mock is **not** real OCR, retrieval, or grounded generation. Filenames cont
 
 Typed client in `src/api/`. Base `/api/v1`. Vault names match Backend + OpenAPI on main:
 
-- Ingest: multipart `POST /notebooks/:id/sources/upload`, JSON `POST /notebooks/:id/sources/paste`
-- Inspect (vault UI): `GET /notebooks/:id/sources`, `GET /notebooks/:id/sources/:sourceId/chunks`, `GET /chunks/:id`
+- Ingest: single `POST /notebooks/:id/sources` — multipart `file` or JSON `{ filename?, text }`
+- Inspect (vault UI): `GET /notebooks/:id/sources`, `GET /sources/:id/chunks`, `GET /chunks/:id`
 - Study: topics propose/confirm/list, `POST /notebooks/:id/quizzes`, `POST /quizzes/:id/attempts`, scoreboard
 
 Retrieve stays on the client for Study-logic; the vault browser uses inspect only.
