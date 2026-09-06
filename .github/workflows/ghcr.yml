@@ -3,6 +3,15 @@
 name: Publish GHCR images
 
 on:
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - "docker/**"
+      - "docker-compose.yml"
+      - "backend/**"
+      - "packages/study_logic/**"
+      - "web/**"
+      - ".github/workflows/ghcr.yml"
   push:
     branches: [main]
     paths:
@@ -24,7 +33,36 @@ env:
   IMAGE: ghcr.io/${{ github.repository }}
 
 jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and start compose stack
+        run: docker compose up -d --build
+
+      - name: Wait for /health and UI
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/health && curl -fsS http://127.0.0.1:3000/ >/dev/null; then
+              curl -fsS http://127.0.0.1:8000/health
+              echo
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs
+          exit 1
+
+      - name: Stop stack
+        if: always()
+        run: docker compose down
+
   publish:
+    if: github.event_name != 'pull_request'
+    needs: smoke
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

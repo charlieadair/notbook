@@ -60,7 +60,17 @@ Do **not** put API keys, tokens, or kubeconfigs in the repo or in this file.
 
 ## Docker (published GHCR images)
 
-Public images — **anonymous `docker pull`, no `docker login`**. Loopback ports only.
+Public images — **anonymous `docker pull`, no `docker login`** once GHCR packages are public. Loopback ports only.
+
+Until `docker pull` works anonymously, clone this repo and **build locally** (no GHCR write needed):
+
+```bash
+git clone https://github.com/charlieadair/notbook.git
+cd notbook
+docker compose up --build
+curl -fsS http://127.0.0.1:8000/health
+# UI: http://127.0.0.1:3000
+```
 
 | What | Image |
 | --- | --- |
