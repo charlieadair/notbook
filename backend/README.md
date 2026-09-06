@@ -7,7 +7,12 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for stack choices. Default base URL: **ht
 ## Requirements
 
 - Python 3.11+
-- **Tesseract** on the host for image/handwriting OCR (`sudo apt-get install tesseract-ocr` on Debian/Ubuntu). If Tesseract is missing, image ingest still creates a `Source` with `extract_status=failed`.
+- **Tesseract** on `PATH` for image / handwriting OCR (Python wheels do not bundle the binary):
+  - macOS: `brew install tesseract`
+  - Debian / Ubuntu: `sudo apt-get install tesseract-ocr`
+  - The GHCR Study API image already bakes `tesseract-ocr` (`backend/Dockerfile`). **Release owns that image** — host install is only needed when running from source.
+
+If Tesseract is missing, image ingest still creates a `Source` with `extract_status=failed` and an `error` (honest failure, not silent success). When `tesseract` is on `PATH`, [`fixtures/handwritten_scan.png`](fixtures/handwritten_scan.png) should land `extract_status=ok` with at least one chunk searchable via retrieve.
 
 ## Run
 
@@ -54,7 +59,7 @@ pytest
 
 ## Smoke (Release)
 
-Default base URL: **http://127.0.0.1:8000**. Fixtures: [`fixtures/sample.pdf`](fixtures/sample.pdf), [`fixtures/handwritten_scan.png`](fixtures/handwritten_scan.png). Image OCR is `failed` unless Tesseract is installed — that is an honest `extract_status`, not silent success.
+Default base URL: **http://127.0.0.1:8000**. Fixtures: [`fixtures/sample.pdf`](fixtures/sample.pdf), [`fixtures/handwritten_scan.png`](fixtures/handwritten_scan.png). `./scripts/smoke.sh` asserts image `extract_status=ok` when `tesseract` is on `PATH`; otherwise it prints `OCR_SKIPPED` and continues (smoke still passes). Missing Tesseract is an honest `extract_status=failed`, not silent success.
 
 One command (server already running):
 
@@ -92,7 +97,10 @@ CHUNK=$(curl -s "$BASE/api/v1/sources/$SOURCE/chunks" \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["id"])')
 curl -s "$BASE/api/v1/chunks/$CHUNK"
 
-# 5. Retrieve — stable citation_chunk_ids; empty vault/query returns []
+# 4b. Sample recent/representative chunks for topic propose (no scores)
+curl -s "$BASE/api/v1/notebooks/$NOTEBOOK/chunks?limit=32"
+
+# 5. Retrieve — stable citation_chunk_ids; empty vault or blank/whitespace query returns []
 curl -s -X POST "$BASE/api/v1/notebooks/$NOTEBOOK/retrieve" \
   -H 'content-type: application/json' \
   -d '{"query":"spectral theorem","top_k":8}'

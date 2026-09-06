@@ -19,6 +19,16 @@ EMPTY=$(curl -sf -X POST "$BASE/api/v1/notebooks/$NOTEBOOK/retrieve" \
   -d '{"query":"spectral theorem","top_k":8}')
 python3 -c 'import json,sys; assert json.loads(sys.argv[1])["chunks"]==[]' "$EMPTY"
 
+echo "== blank query retrieve (must be [] without embedding) =="
+BLANK=$(curl -sf -X POST "$BASE/api/v1/notebooks/$NOTEBOOK/retrieve" \
+  -H 'content-type: application/json' \
+  -d '{"query":"   ","top_k":8}')
+python3 -c 'import json,sys; assert json.loads(sys.argv[1])["chunks"]==[]' "$BLANK"
+
+echo "== empty sample chunks (must be []) =="
+SAMPLE_EMPTY=$(curl -sf "$BASE/api/v1/notebooks/$NOTEBOOK/chunks?limit=32")
+python3 -c 'import json,sys; assert json.loads(sys.argv[1])==[]' "$SAMPLE_EMPTY"
+
 echo "== upload PDF + paste + image =="
 curl -sf -X POST "$BASE/api/v1/notebooks/$NOTEBOOK/sources" \
   -F "file=@fixtures/sample.pdf;type=application/pdf" | python3 -m json.tool
@@ -44,6 +54,29 @@ for r in rows:
 print("sources ok:", [(r["type"], r["extract_status"], r["chunk_count"]) for r in rows])
 ' "$SOURCES"
 
+if command -v tesseract >/dev/null 2>&1; then
+  python3 -c '
+import json, sys
+rows = json.loads(sys.argv[1])
+image = next(r for r in rows if r["type"] == "image")
+assert image["extract_status"] == "ok", image
+assert image["chunk_count"] >= 1, image
+print("ocr ok:", image["chunk_count"], "chunks")
+' "$SOURCES"
+  OCR_HITS=$(curl -sf -X POST "$BASE/api/v1/notebooks/$NOTEBOOK/retrieve" \
+    -H 'content-type: application/json' \
+    -d '{"query":"Gram-Schmidt","top_k":8}')
+  python3 -c '
+import json, sys
+hits = json.loads(sys.argv[1])["chunks"]
+assert hits, "expected OCR text to be searchable via retrieve"
+assert any("gram" in h["text"].lower() or "schmidt" in h["text"].lower() for h in hits)
+print("ocr retrieve ok:", len(hits), "chunks")
+' "$OCR_HITS"
+else
+  echo "OCR_SKIPPED"
+fi
+
 SOURCE=$(python3 -c '
 import json, sys
 rows = json.loads(sys.argv[1])
@@ -60,6 +93,20 @@ assert rows and rows[0]["id"] and rows[0].get("locator") is not None
 print(rows[0]["id"])
 ' "$CHUNKS")
 curl -sf "$BASE/api/v1/chunks/$CHUNK" | python3 -m json.tool
+
+echo "== sample notebook chunks =="
+SAMPLED=$(curl -sf "$BASE/api/v1/notebooks/$NOTEBOOK/chunks?limit=32")
+echo "$SAMPLED" | python3 -m json.tool
+python3 -c '
+import json, sys
+rows = json.loads(sys.argv[1])
+assert rows, "expected sample chunks after ingest"
+for row in rows:
+    assert row.get("id") and row.get("source_id") and row.get("text")
+    assert "locator" in row and "source_filename" in row
+    assert "score" not in row
+print("sample chunks ok:", len(rows))
+' "$SAMPLED"
 
 echo "== retrieve =="
 RETRIEVED=$(curl -sf -X POST "$BASE/api/v1/notebooks/$NOTEBOOK/retrieve" \

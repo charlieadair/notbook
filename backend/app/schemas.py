@@ -66,6 +66,16 @@ class ChunkOut(BaseModel):
     locator: dict[str, Any]
 
 
+class SampleChunk(BaseModel):
+    """Representative notebook chunk for topic propose — no scores."""
+
+    id: str
+    source_id: str
+    text: str
+    locator: dict[str, Any]
+    source_filename: str = ""
+
+
 class ChunkPreview(BaseModel):
     id: str
     source_id: str

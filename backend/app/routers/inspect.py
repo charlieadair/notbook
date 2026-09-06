@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.deps import chunk_count_for, get_notebook
 from app.models import Chunk, Notebook, Source
-from app.schemas import ChunkDetail, ChunkPreview, SourceMeta, SourceOut
+from app.schemas import ChunkDetail, ChunkPreview, SampleChunk, SourceMeta, SourceOut
 
 router = APIRouter(prefix="/api/v1", tags=["inspect"])
 
@@ -31,6 +33,53 @@ def list_sources(
         ).all()
     )
     return [_source_out(db, s) for s in sources]
+
+
+def _created_ts(source: Source) -> float:
+    dt = source.created_at
+    if dt is None:
+        return 0.0
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.timestamp()
+
+
+def _sample_notebook_chunks(db: Session, notebook_id: str, limit: int) -> list[SampleChunk]:
+    sources = {
+        s.id: s
+        for s in db.scalars(select(Source).where(Source.notebook_id == notebook_id)).all()
+    }
+    chunks = list(db.scalars(select(Chunk).where(Chunk.notebook_id == notebook_id)).all())
+    chunks.sort(
+        key=lambda c: (
+            -(_created_ts(sources[c.source_id]) if c.source_id in sources else 0.0),
+            (c.locator or {}).get("order") or 0,
+        )
+    )
+    return [
+        SampleChunk(
+            id=c.id,
+            source_id=c.source_id,
+            text=c.text,
+            locator=c.locator,
+            source_filename=sources[c.source_id].filename if c.source_id in sources else "",
+        )
+        for c in chunks[:limit]
+    ]
+
+
+@router.get(
+    "/notebooks/{notebook_id}/chunks",
+    response_model=list[SampleChunk],
+    summary="Sample recent/representative chunks (no scores)",
+)
+def list_notebook_chunks(
+    notebook: Notebook = Depends(get_notebook),
+    db: Session = Depends(get_db),
+    limit: int = Query(default=32, ge=1, le=200),
+) -> list[SampleChunk]:
+    """Study-logic topic propose calls this instead of empty-query retrieve."""
+    return _sample_notebook_chunks(db, notebook.id, limit)
 
 
 def _chunk_previews(db: Session, source_id: str) -> list[ChunkPreview]:
