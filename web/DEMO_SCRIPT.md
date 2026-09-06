@@ -47,7 +47,7 @@ Confirm **at least two topics** and miss enough items that the scoreboard shows 
 7. **Orchestrator is get-or-create (no extra CTA)** — open the notebook and click **Focus** in the step nav (or **Orchestrator** from the scoreboard). The root chat exists without a “create orchestrator” button. `GET|POST /notebooks/:id/chats/orchestrator` (and listing chats) is idempotent.
 8. **Before pretest attempts:** spawn offer is empty — no invented candidates. On Focus / scoreboard you see a “take pretest first” / no-scores nudge, not a fake offer. `GET /notebooks/:id/spawn-offer` → `{ candidates: [], max_spawn: 2 }`.
 9. **After pretest:** the **Focus chats (offer)** panel lists **≤2** candidates, **severe-first**. Mild gaps remain visible on the scoreboard (not hidden by the offer).
-10. **User picks ≤2** — check topics on the offer, then **Open N focus chat(s)**. Specialists **never auto-open**. You may skip and keep the scoreboard. A third open specialist is refused (API **409** `TooManySpecialists`).
+10. **User picks ≤2** — check topics on the offer, then **Open focus chat**. Study-logic opens **one** specialist for the picked `topic_ids` (`{ chat, warnings[] }`). Specialists **never auto-open**. You may skip and keep the scoreboard. A third open specialist is refused (API **409** `TooManySpecialists`).
 11. **Specialist work still cited** — send a message (API accepts `content` or `text`). Optional `generate_quiz` (API) still returns `citation_chunk_ids`; pretest **Show citations** remains the UI cite path. Grade via existing `POST /quizzes/:id/attempts` — the **shared** scoreboard updates (orchestrator and specialist read the same rows).
 12. **Close specialist → handoff** — **Close & hand off**. Land on Focus / orchestrator. The handoff shows `summary` + `scoreboard_snapshot` (progress only; no unsourced lecture).
 13. **Mild / stale topics still listed** — after handoff, the holistic scoreboard still shows the mild (and any stale) gaps. Worst topic did not erase the rest.
@@ -78,7 +78,7 @@ S1 (404/501 → empty; S0 screens stay up):
 
 - `GET|POST /notebooks/{id}/chats/orchestrator` — get-or-create
 - `GET /notebooks/{id}/spawn-offer` — empty before attempts; ≤2, severe-first after
-- `POST /notebooks/{id}/chats/specialists` `{ topic_ids }`
+- `POST /notebooks/{id}/chats/specialists` `{ topic_ids }` → `{ chat, warnings[] }`
 - `GET|POST /chats/{id}/messages` — `{ text }` or `{ content }` alias; `{ generate_quiz: true }` still cited
 - `POST /chats/{id}/close` → handoff
 - `GET /notebooks/{id}/handoffs`

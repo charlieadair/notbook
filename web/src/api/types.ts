@@ -215,7 +215,7 @@ export interface StudyApi {
   getSpawnOffer(notebookId: string): Promise<SpawnOffer>;
   /** GET /notebooks/:id/chats — [] on 404/501. */
   listChats(notebookId: string): Promise<Chat[]>;
-  /** GET|POST /notebooks/:id/chats/orchestrator — idempotent get-or-create; null on 404/501. */
+  /** POST /notebooks/:id/chats/orchestrator — idempotent get-or-create; null on 404/501. */
   getOrCreateOrchestrator(notebookId: string): Promise<Chat | null>;
   /** GET /chats/:id, else find in notebook chat list; null on 404/501. */
   getChat(chatId: string, notebookId?: string): Promise<Chat | null>;

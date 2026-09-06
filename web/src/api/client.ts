@@ -167,7 +167,10 @@ export class HttpStudyApi implements StudyApi {
   }
 
   async getOrCreateOrchestrator(notebookId: string): Promise<Chat | null> {
-    const data = await this.requestOptional<unknown>(`/notebooks/${notebookId}/chats/orchestrator`);
+    // Issue #22: POST get-or-create. Study-logic #24 also accepts GET on the same path.
+    const data = await this.requestOptional<unknown>(`/notebooks/${notebookId}/chats/orchestrator`, {
+      method: "POST",
+    });
     if (data === undefined) return null;
     const chats = toChats(data);
     if (chats.length) return chats.find((c) => c.kind === "orchestrator") ?? chats[0];

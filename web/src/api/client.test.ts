@@ -185,7 +185,7 @@ describe("HttpStudyApi S1 stubs", () => {
       "POST http://127.0.0.1:8000/api/v1/chats/c1/close",
       "GET http://127.0.0.1:8000/api/v1/notebooks/nb/chats",
       "GET http://127.0.0.1:8000/api/v1/notebooks/nb/handoffs",
-      "GET http://127.0.0.1:8000/api/v1/notebooks/nb/chats/orchestrator",
+      "POST http://127.0.0.1:8000/api/v1/notebooks/nb/chats/orchestrator",
     ]);
   });
 
