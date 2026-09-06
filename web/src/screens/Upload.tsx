@@ -129,7 +129,7 @@ export function Upload() {
       ) : null}
       {note ? <Banner tone="ok">{note}</Banner> : null}
       {pending ? <Banner>Extract still running on at least one source. This list refreshes on its own.</Banner> : null}
-      {failed.length > 0 ? (
+      {failed.length > 0 && !error ? (
         <Banner tone="error">
           OCR / extract failed for {failed.map((s) => s.filename).join(", ")}. Try a clearer photo, or re-upload as PDF /
           markdown / pasted text. Failed sources stay listed so consumption is visible.
