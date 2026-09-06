@@ -13,7 +13,7 @@ from app.db import fts_index_chunk
 from app.inference.base import InferenceAdapter
 from app.models import Chunk, Source
 from app.services.bounded import BoundedTimeoutError, run_with_timeout
-from app.services.chunking import chunk_text
+from app.services.chunking import chunk_extracted_document
 from app.services.embeddings import pack_embedding
 from app.services.ocr import ocr_image
 from app.services.pdf import extract_pdf_pages
@@ -125,29 +125,35 @@ def _extract_pdf_pages(abs_path: Path, settings: Settings) -> list[tuple[int, st
         ) from exc
 
 
-def _extract_pieces(source_type: str, abs_path: Path, settings: Settings) -> list[tuple[str, dict]]:
+def _extract_pieces(
+    source_type: str,
+    abs_path: Path,
+    settings: Settings,
+    inference: InferenceAdapter,
+) -> list[tuple[str, dict]]:
     if source_type == "pdf":
         pages = _extract_pdf_pages(abs_path, settings)
-        pieces: list[tuple[str, dict]] = []
-        order = 0
-        for page_no, page_text in pages:
-            page_chunks = chunk_text(page_text, page=page_no, order_start=order)
-            pieces.extend(page_chunks)
-            order += len(page_chunks)
+        if not any((page_text or "").strip() for _page_no, page_text in pages):
+            raise ValueError("PDF contained no extractable text")
+        pieces = chunk_extracted_document(inference, settings, pages=pages)
         if not pieces:
             raise ValueError("PDF contained no extractable text")
         return pieces
 
     if source_type == "image":
         text = ocr_image(abs_path)
-        pieces = chunk_text(text, region="full", order_start=0)
+        if not (text or "").strip():
+            raise ValueError("OCR produced no text")
+        pieces = chunk_extracted_document(inference, settings, text=text, region="full")
         if not pieces:
             raise ValueError("OCR produced no text")
         return pieces
 
     # markdown | paste
     text = abs_path.read_text(encoding="utf-8", errors="replace")
-    pieces = chunk_text(text, order_start=0)
+    if not text.strip():
+        raise ValueError("File contained no text")
+    pieces = chunk_extracted_document(inference, settings, text=text)
     if not pieces:
         raise ValueError("File contained no text")
     return pieces
@@ -182,7 +188,7 @@ def ingest_bytes(
     db.flush()
 
     try:
-        pieces = _extract_pieces(source_type, abs_path, settings)
+        pieces = _extract_pieces(source_type, abs_path, settings, inference)
         _persist_chunks(
             db,
             notebook_id=notebook_id,
