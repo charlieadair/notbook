@@ -52,3 +52,4 @@ def test_pdf_ingest_then_retrieve(client, notebook_id):
     assert retrieved.status_code == 200
     assert retrieved.json()["chunks"]
     assert any("Eigenvalues" in c["text"] for c in retrieved.json()["chunks"])
+    assert all(c["score"] > 0.0 for c in retrieved.json()["chunks"])

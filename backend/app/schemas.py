@@ -1,7 +1,15 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
+
+
+def _iso_utc(dt: datetime) -> str:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+    return dt.isoformat().replace("+00:00", "Z")
 
 
 class NotebookCreate(BaseModel):
@@ -14,6 +22,10 @@ class NotebookOut(BaseModel):
     id: str
     title: str
     created_at: datetime
+
+    @field_serializer("created_at")
+    def _created_at(self, dt: datetime) -> str:
+        return _iso_utc(dt)
 
 
 class Locator(BaseModel):
@@ -36,6 +48,10 @@ class SourceOut(BaseModel):
     error: str | None = None
     created_at: datetime
     chunk_count: int = 0
+
+    @field_serializer("created_at")
+    def _created_at(self, dt: datetime) -> str:
+        return _iso_utc(dt)
 
 
 class PasteIn(BaseModel):

@@ -112,8 +112,9 @@ def retrieve(
     out: list[ScoredChunk] = []
     for chunk in ranked:
         score = scores.get(chunk.id, 0.0)
-        if score <= 0.0 and len(out) >= top_k:
-            continue
+        if score <= 0.0:
+            # Do not pad with unrelated chunks — empty evidence is better for grounding.
+            break
         out.append(
             ScoredChunk(
                 chunk=chunk,
