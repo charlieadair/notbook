@@ -13,7 +13,7 @@ Minimal self-hosted Study API: local vault + inference adapter. Challenge scope 
 | Vectors | Embedding `BLOB` on `chunks`; cosine similarity in Python |
 | Keyword fallback | SQLite FTS5 (`chunks_fts`) when embeddings are missing or empty |
 | PDF text | `pypdf` |
-| OCR | `pytesseract` + Pillow (Tesseract must be installed on the host) |
+| OCR | `pytesseract` + Pillow (Tesseract on `PATH`; GHCR image bakes it) |
 | Inference | `InferenceAdapter` ABC/Protocol — default `StubInference` |
 
 ## File store
@@ -37,7 +37,7 @@ Topic / Quiz / Attempt / TopicScore are **not** implemented here (Study-logic).
 1. Query is embedded with the active adapter.
 2. Chunks that have vectors are scored with cosine similarity.
 3. If embeddings are missing or ranking is empty, FTS5 `MATCH` (bm25) plus a simple term-overlap fallback is used.
-4. `POST /api/v1/notebooks/{id}/retrieve` returns `{chunks: [{id, source_id, text, locator, score, source_filename?}]}`.
+4. `POST /api/v1/notebooks/{id}/retrieve` returns `{chunks: [{id, source_id, text, locator, score, source_filename?}]}`. Blank or whitespace `query` short-circuits to `{chunks: []}` without calling embed.
 
 S0 does not use an external vector database.
 
@@ -48,8 +48,8 @@ S0 does not use an external vector database.
 ## OCR and extract status
 
 - Images (`png` / `jpg` / `jpeg` / `webp`): Tesseract via pytesseract.
-- **Tesseract must be installed** on the host (`tesseract-ocr` on Debian/Ubuntu). Python wheels do not bundle the binary.
-- If OCR or PDF extract fails, the `Source` row is still created and `extract_status` is set to `failed` with `error` populated. No chunks are written.
+- **Tesseract must be on `PATH`** for a happy path (`brew install tesseract` on macOS, `sudo apt-get install tesseract-ocr` on Debian/Ubuntu). Python wheels do not bundle the binary. The GHCR Study API image already installs it — Release owns that image.
+- If Tesseract is missing, or OCR / PDF extract fails, the `Source` row is still created and `extract_status` is set to `failed` with `error` populated. No chunks are written.
 - PDFs with no extractable text are `failed` (scanned PDFs should be uploaded as images for S0 OCR).
 
 ## Inference adapter
@@ -86,6 +86,7 @@ HTTP `POST /api/v1/notebooks/{id}/retrieve` is a thin wrapper over that same cal
 
 - `POST /api/v1/notebooks/{id}/sources` — multipart file **or** JSON paste `{filename?, text}` (content-type / `?kind=paste`)
 - `GET /api/v1/notebooks/{id}/sources` — extract status + chunk_count
+- `GET /api/v1/notebooks/{id}/chunks?limit=32` — recent/representative chunks `{id, source_id, text, locator, source_filename}` (no scores; empty notebook → `[]`)
 - `GET /api/v1/sources/{source_id}/chunks` — locators + text (vault browser)
 - `GET /api/v1/chunks/{chunk_id}` — full chunk + source metadata
 

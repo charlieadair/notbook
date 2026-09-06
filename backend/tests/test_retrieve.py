@@ -3,6 +3,41 @@ import uuid
 from tests.helpers import build_simple_pdf
 
 
+def test_blank_or_whitespace_query_skips_embedding(client, notebook_id, app, monkeypatch):
+    client.post(
+        f"/api/v1/notebooks/{notebook_id}/sources",
+        json={"text": "The spectral theorem diagonalizes a real symmetric matrix."},
+    )
+    calls: list[list[str]] = []
+    original = app.state.inference.embed
+
+    def spy(texts: list[str]) -> list[list[float]]:
+        calls.append(list(texts))
+        return original(texts)
+
+    monkeypatch.setattr(app.state.inference, "embed", spy)
+
+    for query in ("", "   ", "\n\t"):
+        response = client.post(
+            f"/api/v1/notebooks/{notebook_id}/retrieve",
+            json={"query": query, "top_k": 8},
+        )
+        assert response.status_code == 200
+        assert response.json() == {"chunks": []}
+
+    assert calls == []
+    assert app.state.retrieve(notebook_id, "  ", 8) == []
+
+    response = client.post(
+        f"/api/v1/notebooks/{notebook_id}/retrieve",
+        json={"query": "spectral theorem", "top_k": 8},
+    )
+    assert response.status_code == 200
+    assert response.json()["chunks"]
+    assert calls
+
+
+
 def test_retrieve_returns_stable_chunk_ids(client, notebook_id):
     client.post(
         f"/api/v1/notebooks/{notebook_id}/sources",

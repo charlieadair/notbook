@@ -459,6 +459,65 @@
         }
       }
     },
+    "/api/v1/notebooks/{notebook_id}/chunks": {
+      "get": {
+        "tags": [
+          "inspect"
+        ],
+        "summary": "Sample recent/representative chunks (no scores)",
+        "description": "Study-logic topic propose calls this instead of empty-query retrieve.",
+        "operationId": "list_notebook_chunks_api_v1_notebooks__notebook_id__chunks_get",
+        "parameters": [
+          {
+            "name": "notebook_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Notebook Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 32,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SampleChunk"
+                  },
+                  "title": "Response List Notebook Chunks Api V1 Notebooks  Notebook Id  Chunks Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sources/{source_id}/chunks": {
       "get": {
         "tags": [
@@ -1249,6 +1308,41 @@
           "chunks"
         ],
         "title": "RetrieveOut"
+      },
+      "SampleChunk": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "locator": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Locator"
+          },
+          "source_filename": {
+            "type": "string",
+            "title": "Source Filename",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source_id",
+          "text",
+          "locator"
+        ],
+        "title": "SampleChunk",
+        "description": "Representative notebook chunk for topic propose \u2014 no scores."
       },
       "SourceMeta": {
         "properties": {

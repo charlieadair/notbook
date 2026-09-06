@@ -1,9 +1,14 @@
 import io
+import shutil
 import uuid
+from pathlib import Path
 
 from PIL import Image
 
 from app.services import ingest as ingest_service
+from app.services.ocr import TESSERACT_MISSING
+
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
 
 def test_paste_ingest_source_ok_chunks_and_get_by_id(client, notebook_id):
@@ -123,3 +128,39 @@ def test_failed_ocr_still_creates_source(client, notebook_id, monkeypatch):
     listed = client.get(f"/api/v1/notebooks/{notebook_id}/sources")
     assert listed.json()[0]["extract_status"] == "failed"
     assert listed.json()[0]["chunk_count"] == 0
+
+
+def test_handwritten_fixture_ocr_happy_or_honest_fail(client, notebook_id):
+    png = (FIXTURES / "handwritten_scan.png").read_bytes()
+    upload = client.post(
+        f"/api/v1/notebooks/{notebook_id}/sources",
+        files={"file": ("handwritten_scan.png", png, "image/png")},
+    )
+    assert upload.status_code == 201, upload.text
+    body = upload.json()
+    assert body["type"] == "image"
+
+    if shutil.which("tesseract"):
+        assert body["extract_status"] == "ok"
+        assert body["chunk_count"] >= 1
+        chunks = client.get(f"/api/v1/sources/{body['id']}/chunks")
+        assert chunks.status_code == 200
+        assert chunks.json()
+        assert chunks.json()[0]["locator"].get("region") == "full"
+        blob = " ".join(c["text"] for c in chunks.json()).lower()
+        assert "gram" in blob and "schmidt" in blob
+
+        retrieved = client.post(
+            f"/api/v1/notebooks/{notebook_id}/retrieve",
+            json={"query": "Gram-Schmidt", "top_k": 8},
+        )
+        assert retrieved.status_code == 200
+        hits = retrieved.json()["chunks"]
+        assert hits
+        assert any("gram" in h["text"].lower() or "schmidt" in h["text"].lower() for h in hits)
+    else:
+        assert body["extract_status"] == "failed"
+        assert body["chunk_count"] == 0
+        assert body["error"]
+        assert "tesseract" in body["error"].lower()
+        assert TESSERACT_MISSING in body["error"] or "not on PATH" in body["error"]
