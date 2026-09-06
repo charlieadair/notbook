@@ -61,6 +61,7 @@ that you already pay for.
 ## Spec & build team
 
 - Product contract: [`SPEC.md`](SPEC.md) (challenge target: **S0**, self-hosted)
+- Judge / Release demo gate: [`DEMO.md`](DEMO.md) (self-hosted S0 smoke path)
 - Grok Bot roster (Scope, Study-logic, Backend, Web, Release): [`bots/README.md`](bots/README.md)
 
 ## Acknowledgement
