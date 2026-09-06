@@ -43,10 +43,10 @@ Gates:
 - **409 / `TopicsUnconfirmed`** if any topic is missing or unconfirmed.
 - **422 / `InsufficientEvidence`** if the vault is empty or has no citable chunks. Items are never invented.
 
-## Confirm rule
+## Confirm rule (SPEC §4/§12)
 
-- Inferred path: `propose` (unconfirmed) → `confirm` (sets `confirmed=true`).
-- Explicit path: `confirm` with `{ names: ["Mitosis", ...] }` writes those topics as **already confirmed**. Do not require propose first.
+- **Explicit list up front:** `POST /notebooks/:id/topics/confirm` with `{ names: ["Mitosis", ...] }` (or `{ topics }`) writes those topics as **already confirmed**. Skip `propose`.
+- **Inferred from materials only:** `propose` (always `confirmed=false`) → `confirm` (no body, or `{ topic_ids }`).
 
 ## VaultRetrieve contract (Backend)
 

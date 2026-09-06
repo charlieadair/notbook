@@ -38,7 +38,7 @@ export function createStudyServer(engine: StudyEngine): Server {
       handler: ({ engine, params, body }) => {
         const input = asObject(body);
         return engine.confirmTopics(params[0], {
-          names: asStringArray(input.names),
+          names: asStringArray(input.names) ?? asStringArray(input.topics),
           topic_ids: asStringArray(input.topic_ids),
         });
       },

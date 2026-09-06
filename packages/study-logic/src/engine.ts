@@ -43,8 +43,9 @@ export class StudyEngine {
   }
 
   confirmTopics(notebookId: string, input: ConfirmTopicsInput = {}): Topic[] {
-    if (input.names && input.names.length > 0) {
-      const topics = topicsFromNames(notebookId, input.names, true);
+    const explicit = normalizeExplicitNames(input.names ?? input.topics);
+    if (explicit.length > 0) {
+      const topics = topicsFromNames(notebookId, explicit, true);
       this.store.setTopics(notebookId, topics);
       return topics;
     }
@@ -138,4 +139,18 @@ export class StudyEngine {
       this.store.listAttemptsForNotebook(notebookId),
     );
   }
+}
+
+function normalizeExplicitNames(names?: string[]): string[] {
+  if (!names?.length) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of names) {
+    const name = raw.replace(/\s+/g, " ").trim();
+    const key = name.toLowerCase();
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+  }
+  return out;
 }

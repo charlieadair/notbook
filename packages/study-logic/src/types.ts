@@ -94,7 +94,10 @@ export interface VaultRetrieve {
 }
 
 export type ConfirmTopicsInput = {
+  /** Explicit topic list (SPEC §4/§12). Already confirmed; skips propose. */
   names?: string[];
+  /** Alias for `names`. */
+  topics?: string[];
   topic_ids?: string[];
 };
 

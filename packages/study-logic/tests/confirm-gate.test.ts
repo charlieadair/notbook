@@ -56,6 +56,15 @@ describe("confirm gate", () => {
     const { items } = await study.createQuiz(FIXTURE_NOTEBOOK_ID);
     expect(items.length).toBeGreaterThan(0);
   });
+
+  it("explicit names replace a previously inferred (unconfirmed) map", async () => {
+    const study = engine();
+    await study.proposeTopics(FIXTURE_NOTEBOOK_ID);
+    const topics = study.confirmTopics(FIXTURE_NOTEBOOK_ID, { topics: ["Photosynthesis"] });
+    expect(topics).toHaveLength(1);
+    expect(topics[0].name).toBe("Photosynthesis");
+    expect(topics[0].confirmed).toBe(true);
+  });
 });
 
 describe("HTTP confirm gate", () => {
@@ -80,6 +89,25 @@ describe("HTTP confirm gate", () => {
     expect(ok.status).toBe(200);
     expect(ok.body.quiz.kind).toBe("pretest");
     expect(ok.body.items.length).toBeGreaterThan(0);
+  });
+
+  it("POST confirm with explicit names skips propose", async () => {
+    const study = engine();
+    const { base, close } = await listen(study);
+    servers.push({ close });
+
+    const confirmed = await fetchJson(base, "POST", `/notebooks/${FIXTURE_NOTEBOOK_ID}/topics/confirm`, {
+      names: ["Mitosis"],
+    });
+    expect(confirmed.status).toBe(200);
+    const listed = confirmed.body as unknown as { confirmed: boolean; name: string }[];
+    expect(Array.isArray(listed)).toBe(true);
+    expect(listed.every((t) => t.confirmed)).toBe(true);
+    expect(listed.map((t) => t.name)).toEqual(["Mitosis"]);
+
+    const quiz = await fetchJson(base, "POST", `/notebooks/${FIXTURE_NOTEBOOK_ID}/quizzes`);
+    expect(quiz.status).toBe(200);
+    expect(quiz.body.items?.length).toBeGreaterThan(0);
   });
 });
 
