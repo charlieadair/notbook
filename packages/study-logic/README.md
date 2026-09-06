@@ -27,7 +27,7 @@ npm start          # thin HTTP server on PORT (default 3000)
 
 ## HTTP routes
 
-Preferred prefix is `/api/v1` (matches Backend). Unprefixed aliases still work.
+All study routes are under `/api/v1`.
 
 | Method | Path | Behavior |
 | --- | --- | --- |

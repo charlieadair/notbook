@@ -17,7 +17,7 @@ type RouteContext = {
 const API_PREFIX = "/api/v1";
 
 function path(pattern: string): RegExp {
-  return new RegExp(`^(?:${API_PREFIX})?${pattern}$`);
+  return new RegExp(`^${API_PREFIX}${pattern}$`);
 }
 
 export function createStudyServer(engine: StudyEngine): Server {
