@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { StudyEngine } from "../src/engine.js";
-import { isGroundedItem, keepGroundedItems } from "../src/quiz.js";
+import { MAX_CHOICE_CHARS, isGroundedItem, keepGroundedItems } from "../src/quiz.js";
 import type { QuizItem } from "../src/types.js";
 import { createFixtureVault, fixtureChunks, FIXTURE_NOTEBOOK_ID } from "../src/vault.js";
 
@@ -16,6 +16,12 @@ describe("citation required", () => {
     for (const item of items) {
       expect(item.citation_chunk_ids.length).toBeGreaterThan(0);
       expect(isGroundedItem(item, known)).toBe(true);
+      expect(item.stem.toLowerCase()).not.toContain("stated in the cited source");
+      const correct = item.choices.find((c) => c.id === item.correct_choice_id);
+      expect(correct).toBeDefined();
+      expect(correct!.text.length).toBeLessThanOrEqual(MAX_CHOICE_CHARS);
+      expect(item.rationale).toBeTruthy();
+      expect(item.rationale!.toLowerCase()).toContain("because [");
       for (const id of item.citation_chunk_ids) {
         const chunk = vault.getChunk(id);
         expect(chunk).toBeDefined();
