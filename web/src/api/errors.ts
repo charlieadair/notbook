@@ -59,7 +59,8 @@ export function isApiError(err: unknown): err is ApiError {
 }
 
 export function isAbortError(err: unknown): boolean {
-  return err instanceof Error && err.name === "AbortError";
+  if (!err || typeof err !== "object") return false;
+  return (err as { name?: string }).name === "AbortError";
 }
 
 export async function apiErrorFromResponse(res: Response): Promise<ApiError> {

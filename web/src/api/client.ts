@@ -1,7 +1,7 @@
 import { API_BASE_URL, UPLOAD_TIMEOUT_MS, joinUrl } from "../lib/config";
 import { emptySpawnOffer } from "../lib/spawn";
 import { UPLOAD_HANG_MESSAGE } from "../lib/upload";
-import { ApiError, apiErrorFromResponse, isAbortError, isApiError } from "./errors";
+import { ApiError, apiErrorFromResponse, isApiError } from "./errors";
 import {
   toChat,
   toChatMessage,
@@ -290,7 +290,7 @@ export class HttpStudyApi implements StudyApi {
       if (!text) return undefined as T;
       return JSON.parse(text) as T;
     } catch (err) {
-      if (controller?.signal.aborted && isAbortError(err)) {
+      if (controller?.signal.aborted) {
         throw new ApiError(408, "UploadTimeout", UPLOAD_HANG_MESSAGE);
       }
       throw err;
