@@ -59,3 +59,16 @@ that you already pay for.
 ## Acknowledgement
 
 This project is being built with Grok Bot as part of the Student Build Challenge!
+
+## S0 study engine
+
+Challenge target for this repo is **S0 only** (topics, grounded pretest, scoreboard). Study logic lives in [`packages/study-logic`](packages/study-logic).
+
+```bash
+npm install
+npm test
+npm run build
+npm start
+```
+
+See the package README for routes, the `VaultRetrieve` contract, and the local smoke path. No UI, OCR, or embedding store in this slice.
