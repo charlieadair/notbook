@@ -2,7 +2,7 @@
 
 Release gate for the Student Build Challenge. Contract: [`SPEC.md`](SPEC.md) §12 (S0 acceptance). Self-hosted first. No multi-user auth, no public k8s/Cloudflare ingress, no Legal/ToS for strangers.
 
-**Backend vault is on main** (`backend/`). Study-logic is mounted on the same FastAPI app under `/api/v1`. This file pins those run commands. **Web UI is still TBD** until Web #4 lands — keep the `:3000` steps as honest placeholders only.
+**Backend vault is on main** (`backend/`). Study-logic is mounted on the same FastAPI app under `/api/v1`. **Web UI is on main** (`web/`, PR #4). This file pins those run commands.
 
 ---
 
@@ -12,7 +12,7 @@ Self-hosted study harness; notes stay local; every answer cites what was consume
 
 In one sitting: upload class materials on your machine → inspect the vault (sources + chunks, not only “upload ok”) → confirm topics → take a grounded pretest → see a per-topic struggle map. If a step needs a cloud login, a public URL, or a ToS click, the demo has failed.
 
-Until Web #4, walk that path on the Study API (`http://127.0.0.1:8000/docs` or the curl smoke below). The UI script stays the judge narrative.
+Walk that path in the local UI (`http://127.0.0.1:3000`). The 60s click path is [`web/DEMO_SCRIPT.md`](web/DEMO_SCRIPT.md). The curl smoke below is the same beats against `:8000`.
 
 ---
 
@@ -20,6 +20,7 @@ Until Web #4, walk that path on the Study API (`http://127.0.0.1:8000/docs` or t
 
 - **Machine with this repo cloned** (single-user, local).
 - **Python 3.11+** for the Study API.
+- **Node.js + npm** for the Web UI (`web/`; Vite `npm run dev`).
 - **Tesseract** on the host if you want image/handwriting OCR (`sudo apt-get install tesseract-ocr` on Debian/Ubuntu). Without it, image ingest still creates a `Source` with `extract_status=failed` — honest failure, not silent success.
 - **Inference** — one of:
   - Default **stub** adapter (hash embeddings + fixed JSON complete; no key required).
@@ -42,11 +43,13 @@ Copy `backend/.env.example` → `backend/.env`. Fill locally; never commit value
 | `EMBED_MODEL` | Embeddings model id. Alias: `OPENAI_EMBED_MODEL` | unset (adapter default) |
 | `CHAT_MODEL` | Chat/completions model id. Alias: `OPENAI_CHAT_MODEL` | unset (adapter default) |
 
-Web (still TBD until Web #4):
+Web ([`web/.env.example`](web/.env.example); optional — defaults work for local Backend):
 
-| Key | Intent | Placeholder default |
+| Key | Intent | Default |
 | --- | --- | --- |
-| `NOTBOOK_WEB_URL` | Web UI base | `http://127.0.0.1:3000` |
+| `VITE_API_BASE_URL` | Study API prefix (vault + study-logic) | `http://127.0.0.1:8000/api/v1` |
+
+UI binds **`http://127.0.0.1:3000`** (`npm run dev`, Vite `strictPort`). Do not point `VITE_API_BASE_URL` at Study-logic’s standalone listener, and do not use `VITE_USE_MOCK=1` for the judge path.
 
 Study API base URL is **`http://127.0.0.1:8000`** (not an env pin). Vault, retrieve, and study-logic (topics / quizzes / scoreboard) share that process.
 
@@ -89,19 +92,26 @@ Do **not** put API keys, tokens, or kubeconfigs in the repo or in this file.
 
    Run `./scripts/smoke.sh` from `backend/` with the server already up (Release vault smoke: create notebook → PDF + paste + image → sources → chunks → retrieve).
 
-4. **Start Web UI** — TBD until Web #4 lands. Do not invent a stack.
+4. **Start Web UI** (second terminal; Backend already on `:8000`):
 
    ```bash
-   # TBD — Web #4 will pin the real command (make / package-manager / compose).
-   # Default expect once it lands: http://127.0.0.1:3000
+   cd web
+   npm install
+   npm run dev
+   # VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1   # default; see web/.env.example
+   # UI: http://127.0.0.1:3000
    ```
+
+   - UI: **http://127.0.0.1:3000**
+   - Scripts: `dev` (Vite), `build`, `preview`, `test` — see [`web/package.json`](web/package.json)
+   - Judge click path: [`web/DEMO_SCRIPT.md`](web/DEMO_SCRIPT.md)
 
 5. **Health check**
 
    ```bash
    curl -fsS http://127.0.0.1:8000/health
-   # Then, when Web #4 lands, open the UI in a local browser:
-   #   ${NOTBOOK_WEB_URL:-http://127.0.0.1:3000}
+   # Then open the UI in a local browser:
+   #   http://127.0.0.1:3000
    ```
 
 Both processes must bind **loopback** (or another user-controlled host). A public ingress URL is out of scope and fails the demo.
@@ -110,9 +120,9 @@ Both processes must bind **loopback** (or another user-controlled host). A publi
 
 ## 60-second judge script
 
-UI-first once Web #4 lands. Until then, the same beats run against `:8000` (Swagger or curl). Fail the demo if any step requires **cloud multi-user login**, a **public URL**, or **Legal/ToS acceptance**.
+UI-first. Click path (screens, buttons, fail conditions): [`web/DEMO_SCRIPT.md`](web/DEMO_SCRIPT.md). Same beats against `:8000` via Swagger or the curl smoke below. Fail the demo if any step requires **cloud multi-user login**, a **public URL**, or **Legal/ToS acceptance**.
 
-1. Open the local UI (`http://127.0.0.1:3000` or `NOTBOOK_WEB_URL`). No account signup. *(Web TBD — use `http://127.0.0.1:8000/docs` until Web #4.)*
+1. Open the local UI (`http://127.0.0.1:3000`). No account signup. If the home screen says the API is unreachable, start Backend on `:8000` — do not use `VITE_USE_MOCK=1`.
 2. Create or open a notebook. Upload **one PDF** and **one handwritten/scan** image (`backend/fixtures/sample.pdf`, `backend/fixtures/handwritten_scan.png`).
 3. Inspect the vault: list sources (filenames + extract/OCR status) and open chunks for each source. Prove **consumption**, not only “upload succeeded.”
 4. Confirm proposed topics — or skip propose and use an **explicit topic list** if the UI offers that. Pretest must stay blocked until topics are confirmed (unless the user supplied the list).
@@ -351,9 +361,10 @@ Release runs this on a **fresh shell** before calling the demo green. Maps to [`
 - [ ] Completing pretest updates visible per-topic scoreboard
 - [ ] Demo narrative holds: local materials, visible consumption, grounded quiz
 - [ ] No secrets in git; no multi-user auth / public ingress / Legal docs required for the path
-- [ ] Web UI start on `:3000` — **open until Web #4** (honest placeholder only)
+- [ ] Web UI starts from DEMO install steps (`cd web && npm install && npm run dev` → `http://127.0.0.1:3000`)
+- [ ] 60s judge click path in [`web/DEMO_SCRIPT.md`](web/DEMO_SCRIPT.md) completes against the real `:8000` API (no mock)
 
-Backend install + vault smoke can be ticked from main. Web boxes stay open until Web #4. Study-logic is already on the `:8000` app; the remaining UI work is Web.
+Backend + Web install on main. Study-logic is on the `:8000` app. Judge path is local UI `:3000` + API `:8000`.
 
 ---
 
