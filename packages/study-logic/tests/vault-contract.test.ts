@@ -28,15 +28,15 @@ describe("VaultRetrieve contract", () => {
     expect(hits).toHaveLength(DEFAULT_TOP_K);
   });
 
-  it("HttpVaultRetrieve calls POST /api/v1/notebooks/:id/retrieve and reads { chunks }", async () => {
+  it("HttpVaultRetrieve calls POST /notebooks/:id/retrieve and GET /chunks/:id", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      expect(String(input)).toBe("http://backend.local/api/v1/notebooks/nb_bio/retrieve");
-      expect(init?.method).toBe("POST");
-      const body = JSON.parse(String(init?.body));
-      expect(body).toEqual({ query: "Mitosis", top_k: 8 });
-      return new Response(
-        JSON.stringify({
-          chunks: [
+      const url = String(input);
+      if (url === "http://backend.local/notebooks/nb_bio/retrieve") {
+        expect(init?.method).toBe("POST");
+        const body = JSON.parse(String(init?.body));
+        expect(body.query).toBe("Mitosis");
+        return new Response(
+          JSON.stringify([
             {
               id: "chunk_mitosis",
               source_id: "notes-cell-cycle",
@@ -45,10 +45,24 @@ describe("VaultRetrieve contract", () => {
               score: 0.9,
               source_filename: "notes-cell-cycle.md",
             },
-          ],
-        }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      );
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url === "http://backend.local/chunks/chunk_mitosis") {
+        return new Response(
+          JSON.stringify({
+            id: "chunk_mitosis",
+            source_id: "notes-cell-cycle",
+            text: "Mitosis produces two identical daughter cells.",
+            locator: "notes-cell-cycle.md#mitosis",
+            score: 0.9,
+            source_filename: "notes-cell-cycle.md",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -56,6 +70,8 @@ describe("VaultRetrieve contract", () => {
     const chunks = await adapter.retrieve({ notebook_id: "nb_bio", query: "Mitosis" });
     expect(chunks).toHaveLength(1);
     expect(chunks[0].id).toBe("chunk_mitosis");
+    const one = await adapter.getChunk("chunk_mitosis");
+    expect(one?.id).toBe("chunk_mitosis");
     vi.unstubAllGlobals();
   });
 });

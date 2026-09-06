@@ -6,9 +6,9 @@ export function isCitableChunk(chunk: Chunk): boolean {
 
 /**
  * In-memory fixture vault for tests and local smoke.
- * Backend owns the real vault:
- *   POST /api/v1/notebooks/{notebook_id}/retrieve  { query, top_k? } → { chunks }
- *   GET  /api/v1/chunks/{chunk_id}                 → Chunk
+ * Backend owns the real vault (S0 sketch):
+ *   POST /notebooks/:id/retrieve  { query } → citable chunks
+ *   GET  /chunks/:id
  */
 export class InMemoryVault implements VaultRetrieve {
   private readonly chunks = new Map<string, Chunk[]>();
@@ -70,13 +70,15 @@ function scoreChunk(chunk: Chunk, query: string, terms: string[]): number {
 }
 
 /**
- * HTTP adapter for Backend vault. baseUrl is the origin (no /api/v1 suffix).
+ * HTTP adapter for Backend vault. Calls the S0 sketch paths:
+ *   POST /notebooks/:id/retrieve  { query }
+ *   GET  /chunks/:id
  */
 export class HttpVaultRetrieve implements VaultRetrieve {
   constructor(private readonly baseUrl: string) {}
 
   async retrieve(args: RetrieveArgs): Promise<Chunk[]> {
-    const url = `${trimSlash(this.baseUrl)}/api/v1/notebooks/${encodeURIComponent(args.notebook_id)}/retrieve`;
+    const url = `${trimSlash(this.baseUrl)}/notebooks/${encodeURIComponent(args.notebook_id)}/retrieve`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -85,12 +87,11 @@ export class HttpVaultRetrieve implements VaultRetrieve {
     if (!res.ok) {
       throw new Error(`Vault retrieve failed: ${res.status}`);
     }
-    const body = (await res.json()) as { chunks?: Chunk[] };
-    return body.chunks ?? [];
+    return parseRetrieveBody(await res.json());
   }
 
   async getChunk(id: string): Promise<Chunk | undefined> {
-    const url = `${trimSlash(this.baseUrl)}/api/v1/chunks/${encodeURIComponent(id)}`;
+    const url = `${trimSlash(this.baseUrl)}/chunks/${encodeURIComponent(id)}`;
     const res = await fetch(url);
     if (res.status === 404) return undefined;
     if (!res.ok) {
@@ -98,6 +99,14 @@ export class HttpVaultRetrieve implements VaultRetrieve {
     }
     return (await res.json()) as Chunk;
   }
+}
+
+function parseRetrieveBody(body: unknown): Chunk[] {
+  if (Array.isArray(body)) return body as Chunk[];
+  if (body && typeof body === "object" && Array.isArray((body as { chunks?: unknown }).chunks)) {
+    return (body as { chunks: Chunk[] }).chunks;
+  }
+  return [];
 }
 
 function trimSlash(url: string): string {
