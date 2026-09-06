@@ -22,7 +22,7 @@ Walk that path in the local UI (`http://127.0.0.1:3000`). The 60s click path is 
 - **Docker** (Compose v2) for the GHCR / compose path.
 - **Python 3.11+** for the Study API if you run it from source.
 - **Node.js + npm** for the Web UI (`web/`; Vite `npm run dev`) if you run it from source.
-- **Tesseract** on the host if you run the API from source and want image/handwriting OCR (`sudo apt-get install tesseract-ocr` on Debian/Ubuntu). The published API image already includes Tesseract. Without it, image ingest still creates a `Source` with `extract_status=failed` — honest failure, not silent success.
+- **Tesseract** on the host if you run the API from source and want image/handwriting OCR (`brew install tesseract` on macOS; `sudo apt-get install tesseract-ocr` on Debian/Ubuntu). The published GHCR API image already bakes Tesseract (Release owns the image). Without it, image ingest still creates a `Source` with `extract_status=failed` — honest failure, not silent success.
 - **Inference** — one of:
   - Default **stub** adapter (hash embeddings + fixed JSON complete; no key required).
   - Local model runtime (~16GB GPU VRAM), or
@@ -205,9 +205,10 @@ Mirrors the same path against the local Study API on **http://127.0.0.1:8000**. 
 - `POST /api/v1/notebooks` — `{ "title" }` → notebook `id`
 - `POST /api/v1/notebooks/:id/sources` — PDF \| md \| paste \| image/scan (`file=` multipart, or JSON `{filename, text}` for paste)
 - `GET /api/v1/notebooks/:id/sources` — list + `extract_status` + `chunk_count`
+- `GET /api/v1/notebooks/:id/chunks?limit=32` — recent/representative chunks for topic propose (no scores; empty notebook → `[]`)
 - `GET /api/v1/sources/:id/chunks` — inspect
 - `GET /api/v1/chunks/:id` — text + locator
-- `POST /api/v1/notebooks/:id/retrieve` — `{ "query", "top_k" }` → `{ "chunks": [...] }`
+- `POST /api/v1/notebooks/:id/retrieve` — `{ "query", "top_k" }` → `{ "chunks": [...] }` (blank/whitespace query → `{chunks:[]}`)
 
 **Study-logic (same `:8000`, mounted under `/api/v1`)**
 
@@ -218,7 +219,7 @@ Mirrors the same path against the local Study API on **http://127.0.0.1:8000**. 
 - `POST /api/v1/quizzes/:id/attempts` — `{ "item_id", "selected_choice_id" }` → grade → scoreboard
 - `GET /api/v1/notebooks/:id/scoreboard` — `{ "topics", "window": 20, "proficiency_bar": 0.8 }`
 
-Backend retrieve returns `[]` for an empty query, so `topics/propose` (which retrieves with `""`) does not invent names from the vault. The smoke below still asserts **409** before confirm, then uses the SPEC-allowed **explicit topic list** so pretest can retrieve by name.
+`topics/propose` samples vault chunks (`GET /api/v1/notebooks/:id/chunks?limit=32` or the in-process `list_chunks` callable) and never calls retrieve with `query=""`. Empty vault → `[]`. The smoke below still asserts **409** before confirm, then uses the SPEC-allowed **explicit topic list** so pretest can retrieve by name.
 
 Official vault-only smoke (server already running): `cd backend && ./scripts/smoke.sh`.
 
@@ -331,8 +332,8 @@ if [[ "$pre_code" != "409" ]]; then
   exit 1
 fi
 
-# Confirm an explicit topic list (no forced re-propose). Empty-body confirm
-# of a [] propose stays unconfirmed — Backend retrieve("") is [].
+# Confirm an explicit topic list (no forced re-propose). After ingest,
+# propose may return draft names from sampled chunks; explicit names still win.
 curl -fsS -X POST "$API/api/v1/notebooks/${NOTEBOOK_ID}/topics/confirm" \
   -H "Content-Type: application/json" \
   -d '{"names":["spectral theorem"]}' >"$tmp/confirm.json"

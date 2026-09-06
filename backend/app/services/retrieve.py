@@ -67,6 +67,9 @@ def retrieve(
     query: str,
     top_k: int = 8,
 ) -> list[ScoredChunk]:
+    if not (query or "").strip():
+        return []
+
     chunks = list(
         db.scalars(select(Chunk).where(Chunk.notebook_id == notebook_id)).all()
     )

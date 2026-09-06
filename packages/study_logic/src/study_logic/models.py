@@ -3,13 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal, Mapping
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 SCORE_WINDOW = 20
 PROFICIENCY_BAR = 0.8
 SEVERE_RATE = 0.5
 SEVERE_MISS_COUNT = 3
 DEFAULT_TOP_K = 8
+DEFAULT_SAMPLE_LIMIT = 32
 MAX_SPAWN = 2
 
 
@@ -280,6 +281,26 @@ class SpecialistBody(BaseModel):
 
 
 class MessageBody(BaseModel):
+    """POST /chats/{id}/messages body.
+
+    `text` is canonical. `content` is accepted as a Web-compat alias.
+    If both are present, `text` wins.
+    """
+
     role: Literal["user", "assistant"] = "user"
-    text: str = ""
+    text: str | None = None
+    content: str | None = None
     generate_quiz: bool = False
+
+    @model_validator(mode="after")
+    def require_text_or_content(self) -> MessageBody:
+        if self.text is None and self.content is None and not self.generate_quiz:
+            raise ValueError("message body requires 'text' (canonical) or 'content' (Web alias)")
+        return self
+
+    def resolved_text(self) -> str:
+        if self.text is not None:
+            return self.text
+        if self.content is not None:
+            return self.content
+        return ""

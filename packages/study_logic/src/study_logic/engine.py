@@ -27,17 +27,46 @@ from study_logic.quiz import build_grounded_items, create_quiz_record
 from study_logic.scoreboard import build_scoreboard, score_topic
 from study_logic.store import MemoryStore
 from study_logic.topics import all_topics_confirmed, normalize_explicit_names, propose_topic_names, topics_from_names
-from study_logic.vault import RetrieveFn, call_retrieve, create_fixture_vault
+from study_logic.vault import (
+    ListChunksFn,
+    RetrieveFn,
+    call_list_chunks,
+    call_retrieve,
+    companion_list_chunks,
+    create_fixture_vault,
+)
 
 
 class StudyEngine:
-    def __init__(self, retrieve: RetrieveFn | None = None, store: MemoryStore | None = None) -> None:
+    def __init__(
+        self,
+        retrieve: RetrieveFn | None = None,
+        store: MemoryStore | None = None,
+        list_chunks: ListChunksFn | None = None,
+    ) -> None:
+        if retrieve is None and list_chunks is None:
+            vault = create_fixture_vault()
+            retrieve = vault.retrieve
+            list_chunks = vault.list_chunks
         self.retrieve = retrieve or create_fixture_vault().retrieve
+        self.list_chunks = list_chunks or companion_list_chunks(self.retrieve)
         self.store = store or MemoryStore()
 
     def propose_topics(self, notebook_id: str) -> list[Topic]:
-        chunks = call_retrieve(self.retrieve, notebook_id, "", 50)
-        topics = topics_from_names(notebook_id, propose_topic_names(chunks), False)
+        # Never sample via retrieve(query=""): Backend blank-query retrieve is [].
+        if self.list_chunks is None:
+            raise insufficient_evidence(
+                "No sample-chunks source (list_chunks= or GET /notebooks/{id}/chunks). "
+                "Refuse empty-query retrieve."
+            )
+        chunks = call_list_chunks(self.list_chunks, notebook_id)
+        if not chunks:
+            self.store.set_topics(notebook_id, [])
+            return []
+        names = propose_topic_names(chunks)
+        if not names:
+            raise insufficient_evidence("Sampled chunks yielded no draft topic names")
+        topics = topics_from_names(notebook_id, names, False)
         self.store.set_topics(notebook_id, topics)
         return topics
 

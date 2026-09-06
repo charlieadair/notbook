@@ -15,7 +15,7 @@ pip install -e 'packages/study_logic[dev]'   # pytest + httpx
 
 ## Backend mount (DEMO)
 
-Recommended — inject Backend’s in-process retrieve (same chunk fields as `POST /api/v1/notebooks/{id}/retrieve`):
+Recommended — inject Backend’s in-process retrieve (same chunk fields as `POST /api/v1/notebooks/{id}/retrieve`) and sample-chunks (same fields as `GET /api/v1/notebooks/{id}/chunks?limit=32`):
 
 ```python
 from fastapi import FastAPI
@@ -26,8 +26,12 @@ def retrieve(notebook_id: str, query: str, top_k: int = 8):
     # id, source_id, text, locator, score, source_filename
     return backend_vault.search(notebook_id, query, top_k)
 
+def list_chunks(notebook_id: str, limit: int = 32):
+    # Recent/representative chunks — no scores. Used by topic propose.
+    return backend_vault.sample(notebook_id, limit)
+
 app = FastAPI()
-install_study_logic(app, retrieve=retrieve, prefix="/api/v1")
+install_study_logic(app, retrieve=retrieve, list_chunks=list_chunks, prefix="/api/v1")
 # app now serves study routes on :8000 under /api/v1
 ```
 
@@ -39,27 +43,30 @@ from study_logic.api import create_router, router
 
 app = FastAPI()
 
-# Production: pass Backend retrieve
-app.include_router(create_router(retrieve=retrieve), prefix="/api/v1")
+# Production: pass Backend retrieve + sample-chunks
+app.include_router(create_router(retrieve=retrieve, list_chunks=list_chunks), prefix="/api/v1")
 
 # Offline fixture only (nb_bio):
 # from study_logic.api import router
 # app.include_router(router, prefix="/api/v1")
 ```
 
-`router` is fixture-backed. DEMO should pass `retrieve=` so quizzes cite the real vault.
+`router` is fixture-backed. DEMO should pass `retrieve=` and `list_chunks=` so quizzes cite the real vault and propose does not call retrieve with `query=""`.
 
-HTTP-client retrieve (if Backend is already serving retrieve on the same app, prefer the in-process callable instead):
+HTTP-client fallback (if Backend is already serving retrieve / chunks on the same app, prefer the in-process callables instead):
 
 ```python
 from study_logic.vault import HttpVaultRetrieve
 from study_logic.api import create_router
 
+vault = HttpVaultRetrieve("http://127.0.0.1:8000")
 app.include_router(
-    create_router(retrieve=HttpVaultRetrieve("http://127.0.0.1:8000").retrieve),
+    create_router(retrieve=vault.retrieve, list_chunks=vault.list_chunks),
     prefix="/api/v1",
 )
 ```
+
+`HttpVaultRetrieve.list_chunks` is `GET /api/v1/notebooks/{id}/chunks?limit=32`. If `retrieve` is a bound `VaultRetrieve.retrieve`, propose reuses that object's `list_chunks` automatically.
 
 ## Routes (after `prefix="/api/v1"`)
 
@@ -82,14 +89,15 @@ S1 chat tree (same router / same process):
 | `GET` | `/api/v1/notebooks/{id}/chats` |
 | `GET` | `/api/v1/notebooks/{id}/spawn-offer` |
 | `POST` | `/api/v1/notebooks/{id}/chats/specialists` — `{ "topic_ids": string[] }` |
-| `POST` | `/api/v1/chats/{id}/messages` — `{ "role"?, "text"?, "generate_quiz"? }` |
+| `POST` | `/api/v1/chats/{id}/messages` — `{ "role"?, "text"?, "content"?, "generate_quiz"? }` |
 | `POST` | `/api/v1/chats/{id}/close` — specialist → orchestrator handoff |
 | `GET` | `/api/v1/notebooks/{id}/handoffs` |
 
 - **409 `TopicsUnconfirmed`** until the topic map is confirmed.
-- **422 `InsufficientEvidence`** if retrieve returns no citable chunks — never invent items.
+- **422 `InsufficientEvidence`** if retrieve returns no citable chunks — never invent items. Propose samples via `list_chunks` / `GET …/chunks` (never `retrieve("")`). Empty vault → `[]`. Chunks with no extractable names → **422**.
 - **409 `TooManySpecialists`** if a third open specialist would be created (`max_spawn` = **2**).
 - **409 `ChatClosed`** if posting to a closed chat.
+- `POST …/messages`: **`text` is canonical**; **`content` is accepted as a Web-compat alias**. If both are present, `text` wins. If neither is present (and `generate_quiz` is not true), the route returns **422**.
 - Explicit `{ "names": [...] }` on confirm writes already-confirmed topics (skip propose).
 - Every quiz item has `citation_chunk_ids` = retrieved `chunk.id` (including `generate_quiz` on a chat).
 - Scoreboard: last **20** attempts / topic, proficiency **0.8**. Shared by orchestrator and specialists — grade via `POST /quizzes/{id}/attempts`.
