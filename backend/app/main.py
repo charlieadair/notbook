@@ -6,7 +6,7 @@ from app.config import Settings
 from app.db import init_db, make_engine, make_session_factory
 from app.inference import build_inference
 from app.routers import health, ingest, inspect, notebooks, retrieve
-from app.vault import bind_retrieve, try_install_study_logic
+from app.vault import bind_retrieve, mount_study_logic
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -43,7 +43,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(ingest.router)
     app.include_router(retrieve.router)
     app.include_router(inspect.router)
-    try_install_study_logic(app)
+    mount_study_logic(app)
 
     @app.get("/", include_in_schema=False)
     def root() -> dict[str, str]:
@@ -53,9 +53,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "openapi": "/openapi.json",
         }
 
-    # Extension point (Study-logic owns these — do not invent pedagogy here):
+    # Study-logic routes (mounted via install_study_logic):
     #   POST /api/v1/notebooks/{id}/topics/propose
     #   POST /api/v1/notebooks/{id}/topics/confirm
+    #   GET  /api/v1/notebooks/{id}/topics
     #   POST /api/v1/notebooks/{id}/quizzes
     #   POST /api/v1/quizzes/{id}/attempts
     #   GET  /api/v1/notebooks/{id}/scoreboard

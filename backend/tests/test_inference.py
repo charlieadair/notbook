@@ -16,6 +16,6 @@ def test_inference_endpoint_reports_stub(client):
     assert response.status_code == 200
     body = response.json()
     assert body["adapter"] == "stub"
-    assert body["study_logic_mounted"] is False
+    assert body["study_logic_mounted"] is True
     assert "api_key" not in body
     assert "OPENAI" not in str(body)

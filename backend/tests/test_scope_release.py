@@ -135,4 +135,8 @@ def test_retrieve_callable_same_shape_as_http(client, app, notebook_id):
     )
     assert http.status_code == 200
     assert http.json()["chunks"] == hits
-    assert app.state.study_logic_mounted is False
+    assert app.state.study_logic_mounted is True
+
+    topics = client.get(f"/api/v1/notebooks/{notebook_id}/topics")
+    assert topics.status_code == 200
+    assert topics.json() == []

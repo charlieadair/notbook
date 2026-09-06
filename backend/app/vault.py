@@ -6,6 +6,7 @@ from collections.abc import Callable, Sequence
 from typing import Any, TypedDict
 
 from fastapi import FastAPI
+from study_logic.api import install_study_logic
 
 from app.services.retrieve import retrieve as retrieve_rows
 
@@ -54,20 +55,7 @@ def bind_retrieve(app: FastAPI) -> RetrieveFn:
     return retrieve
 
 
-def try_install_study_logic(app: FastAPI) -> None:
-    """Mount Study-logic when `study_logic` is importable (PR #6). Vault smoke does not depend on this.
-
-    TODO(study-logic): PR #6 is not merged. When `packages/study_logic` is on PYTHONPATH:
-
-        from study_logic.api import install_study_logic
-        install_study_logic(app, retrieve=app.state.retrieve, prefix="/api/v1")
-
-    Until then this is a no-op stub hook (`app.state.study_logic_mounted is False`).
-    """
-    try:
-        from study_logic.api import install_study_logic  # type: ignore
-    except ImportError:
-        app.state.study_logic_mounted = False
-        return
+def mount_study_logic(app: FastAPI) -> None:
+    """Include Study-logic on the same :8000 app with the vault retrieve callable."""
     install_study_logic(app, retrieve=app.state.retrieve, prefix="/api/v1")
     app.state.study_logic_mounted = True

@@ -15,6 +15,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for stack choices. Default base URL: **ht
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
+pip install -e ../packages/study_logic
 pip install -e ".[dev]"
 
 # optional: cp .env.example .env
@@ -46,6 +47,7 @@ Never commit API keys. See [`.env.example`](.env.example).
 
 ```bash
 cd backend
+pip install -e ../packages/study_logic
 pip install -e ".[dev]"
 pytest
 ```
@@ -98,26 +100,13 @@ curl -s -X POST "$BASE/api/v1/notebooks/$NOTEBOOK/retrieve" \
 
 `POST /sources/upload` and `POST /sources/paste` remain as deprecated aliases.
 
-## Study-logic mount (optional)
+## Study-logic mount
 
-Vault smoke does **not** require Study-logic. `POST /api/v1/notebooks/{id}/retrieve` wraps the same callable Study-logic will mount:
-
-```python
-def retrieve(notebook_id: str, query: str, top_k: int = 8) -> list[dict]:
-    # id, source_id, text, locator, score, source_filename
-```
-
-**TODO:** [PR #6](https://github.com/charlieadair/notbook/pull/6) is not merged. `try_install_study_logic` in `app/main.py` is a stub hook — it no-ops until the package is importable. After #6 is on disk:
-
-```bash
-pip install -e ../packages/study_logic
-```
-
-Then on startup:
+`packages/study_logic` (merged in #6) is installed with the backend and mounted on the same :8000 process:
 
 ```python
 from study_logic.api import install_study_logic
 install_study_logic(app, retrieve=app.state.retrieve, prefix="/api/v1")
 ```
 
-`GET /inference` includes `study_logic_mounted` (currently `false` without that package).
+`app.state.retrieve(notebook_id, query, top_k=8)` returns chunks with exact keys `id, source_id, text, locator, score, source_filename`. HTTP retrieve is the same callable. `GET /inference` reports `study_logic_mounted: true`.
