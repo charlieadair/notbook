@@ -91,7 +91,12 @@ def create_router(retrieve: RetrieveFn | None = None, engine: StudyEngine | None
     @api.post("/chats/{chat_id}/messages")
     @_guard
     def post_message(chat_id: str, body: MessageBody) -> dict[str, Any]:
-        return study.post_message(chat_id, role=body.role, text=body.text, generate_quiz=body.generate_quiz)
+        return study.post_message(
+            chat_id,
+            role=body.role,
+            text=body.resolved_text(),
+            generate_quiz=body.generate_quiz,
+        )
 
     @api.post("/chats/{chat_id}/close")
     @_guard
