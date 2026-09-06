@@ -93,7 +93,9 @@ S1 chat tree (same router / same process):
 - Explicit `{ "names": [...] }` on confirm writes already-confirmed topics (skip propose).
 - Every quiz item has `citation_chunk_ids` = retrieved `chunk.id` (including `generate_quiz` on a chat).
 - Scoreboard: last **20** attempts / topic, proficiency **0.8**. Shared by orchestrator and specialists — grade via `POST /quizzes/{id}/attempts`.
-- Spawn offer is **after pretest scores**, **severe-first**, **≤ 2** candidates. Mild gaps stay on the scoreboard (not hidden). Topics not in the offer may still be opened (soft `warnings[]`).
+- Spawn offer is **after pretest scores / attempts only** (empty `candidates` if none — never invented from the topic map), **severe-first**, **≤ 2** candidates. Mild gaps stay on the scoreboard (not hidden). Topics not in the offer may still be opened (soft `warnings[]`).
+- Orchestrator is **get-or-create** (`GET`/`POST …/chats/orchestrator`) — call on notebook open. Spawn is an offer; specialists are never auto-opened.
+- `Chat` / `Handoff` live in the study-logic memory store (same process as S0). No Backend SQLite tables for S1.
 - Close writes an auto **Handoff** into the orchestrator with a progress summary + `scoreboard_snapshot`. Summary is scoreboard/progress only (no unsourced teaching claims).
 
 Optional `{ "topic_ids": [...] }` on `POST /quizzes` scopes generation; omit it for the S0 whole-notebook pretest.

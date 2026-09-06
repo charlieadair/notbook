@@ -43,6 +43,28 @@ def _grade(client: TestClient, quiz_id: str, item: dict, *, correct: bool) -> di
     return res.json()
 
 
+def test_spawn_offer_empty_when_no_attempts() -> None:
+    engine = StudyEngine(retrieve=create_fixture_vault().retrieve)
+    engine.confirm_topics("nb_bio", names=["Mitosis", "Meiosis", "Photosynthesis"])
+    offer = engine.spawn_offer("nb_bio")
+    assert offer.candidates == []
+    assert offer.max_spawn == MAX_SPAWN
+
+
+def test_http_spawn_offer_empty_before_pretest(client: TestClient) -> None:
+    _confirm(client)
+    offer = client.get("/api/v1/notebooks/nb_bio/spawn-offer")
+    assert offer.status_code == 200
+    body = offer.json()
+    assert body["candidates"] == []
+    assert body["max_spawn"] == 2
+    orch = client.post("/api/v1/notebooks/nb_bio/chats/orchestrator")
+    again = client.get("/api/v1/notebooks/nb_bio/chats/orchestrator")
+    assert orch.status_code == 200
+    assert again.json()["id"] == orch.json()["id"]
+    assert client.get("/api/v1/notebooks/nb_bio/chats").json()[0]["kind"] == "orchestrator"
+
+
 def test_spawn_offer_caps_at_two_and_prefers_severe() -> None:
     engine = StudyEngine(retrieve=create_fixture_vault().retrieve)
     topics = engine.confirm_topics("nb_bio", names=["Mitosis", "Meiosis", "Photosynthesis"])

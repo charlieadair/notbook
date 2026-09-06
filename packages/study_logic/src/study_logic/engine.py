@@ -156,6 +156,9 @@ class StudyEngine:
         return self.store.list_chats(notebook_id)
 
     def spawn_offer(self, notebook_id: str) -> SpawnOffer:
+        # Scope: offer only after pretest / attempts — never invent candidates from the topic map.
+        if not self.store.list_attempts(notebook_id):
+            return SpawnOffer(notebook_id=notebook_id, candidates=[], max_spawn=MAX_SPAWN)
         topics = self.store.list_topics(notebook_id)
         return build_spawn_offer(notebook_id, topics, self.scoreboard(notebook_id))
 

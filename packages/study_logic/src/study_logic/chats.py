@@ -36,6 +36,7 @@ def _gap_sort_key(score: TopicScore) -> tuple[int, float, int, str]:
 
 
 def build_spawn_offer(notebook_id: str, topics: list[Topic], board: Scoreboard) -> SpawnOffer:
+    """Rank mild/severe gaps. Caller must skip this when the notebook has no attempts."""
     names = {topic.id: topic.name for topic in topics}
     gaps = [row for row in board.topics if row.severity in ("mild", "severe")]
     gaps.sort(key=_gap_sort_key)
