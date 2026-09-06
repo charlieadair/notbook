@@ -116,7 +116,16 @@ def test_retrieve_callable_same_shape_as_http(client, app, notebook_id):
     hits = app.state.retrieve(notebook_id, "spectral theorem", 8)
     assert hits
     first = hits[0]
-    assert first.id and first.source_id and first.text
-    assert first.locator is not None
-    assert first.score > 0
-    assert first.source_filename
+    assert set(first) >= {
+        "id",
+        "source_id",
+        "text",
+        "locator",
+        "score",
+        "source_filename",
+    }
+    assert first["id"] and first["source_id"] and first["text"]
+    assert first["locator"] is not None
+    assert first["score"] > 0
+    assert first["source_filename"]
+    assert app.state.study_logic_mounted is False

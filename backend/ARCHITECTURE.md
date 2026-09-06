@@ -66,15 +66,23 @@ Implementations:
 
 Activate the remote adapter with `INFERENCE_PROVIDER=openai-compatible` (or `auto` when base + key are set). `GET /inference` reports the active adapter and model names; it never returns secrets.
 
-Study-logic mount (optional, does not block vault smoke): `app.state.retrieve` is `retrieve(notebook_id, query, top_k=8) -> list[RetrieveChunk]` with fields `id, source_id, text, locator, score, source_filename`. HTTP `POST .../retrieve` is a thin wrapper over that callable.
+Study-logic mount (optional, does not block vault smoke). `app.state.retrieve` is:
 
 ```python
-# TODO when study_logic is on PYTHONPATH (PR #6):
-# from study_logic.api import install_study_logic
-# install_study_logic(app, retrieve=app.state.retrieve, prefix="/api/v1")
+def retrieve(notebook_id: str, query: str, top_k: int = 8) -> list[dict]:
+    # keys: id, source_id, text, locator, score, source_filename
 ```
 
-`try_install_study_logic(app)` in `app/main.py` no-ops if the package is missing.
+HTTP `POST /api/v1/notebooks/{id}/retrieve` is a thin wrapper over that same callable.
+
+**TODO (PR #6 not merged):** `try_install_study_logic(app)` in `app/main.py` / `app/vault.py` no-ops until `study_logic` is importable. When `packages/study_logic` lands:
+
+```python
+from study_logic.api import install_study_logic
+install_study_logic(app, retrieve=app.state.retrieve, prefix="/api/v1")
+```
+
+`GET /inference` reports `study_logic_mounted` (false until that package is installed). Do not copy quiz pedagogy into this service.
 
 ## Inspectability
 

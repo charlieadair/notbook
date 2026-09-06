@@ -97,3 +97,27 @@ curl -s -X POST "$BASE/api/v1/notebooks/$NOTEBOOK/retrieve" \
 ```
 
 `POST /sources/upload` and `POST /sources/paste` remain as deprecated aliases.
+
+## Study-logic mount (optional)
+
+Vault smoke does **not** require Study-logic. `POST /api/v1/notebooks/{id}/retrieve` wraps the same callable Study-logic will mount:
+
+```python
+def retrieve(notebook_id: str, query: str, top_k: int = 8) -> list[dict]:
+    # id, source_id, text, locator, score, source_filename
+```
+
+**TODO:** [PR #6](https://github.com/charlieadair/notbook/pull/6) is not merged. `try_install_study_logic` in `app/main.py` is a stub hook — it no-ops until the package is importable. After #6 is on disk:
+
+```bash
+pip install -e ../packages/study_logic
+```
+
+Then on startup:
+
+```python
+from study_logic.api import install_study_logic
+install_study_logic(app, retrieve=app.state.retrieve, prefix="/api/v1")
+```
+
+`GET /inference` includes `study_logic_mounted` (currently `false` without that package).

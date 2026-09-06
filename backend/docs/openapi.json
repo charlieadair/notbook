@@ -750,6 +750,11 @@
               }
             ],
             "title": "Chat Model"
+          },
+          "study_logic_mounted": {
+            "type": "boolean",
+            "title": "Study Logic Mounted",
+            "default": false
           }
         },
         "type": "object",

@@ -118,3 +118,4 @@ class InferenceInfoOut(BaseModel):
     adapter: str
     embed_model: str | None = None
     chat_model: str | None = None
+    study_logic_mounted: bool = False
