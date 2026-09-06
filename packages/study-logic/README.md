@@ -9,7 +9,7 @@ This package is the study-logic boundary. It does **not** implement UI, OCR, or 
 ```
 packages/study-logic/
   src/           # engine, HTTP adapter, vault contract, scoring
-  tests/         # confirm gate, citations, empty vault, scoreboard
+  tests/         # confirm gate, citations, empty vault, scoreboard, vault contract
 ```
 
 Root scripts (`npm test`, `npm run build`, `npm start`) delegate here.
@@ -25,25 +25,18 @@ npm run build
 npm start          # thin HTTP server on PORT (default 3000)
 ```
 
-Or from this directory:
-
-```bash
-npm install
-npm test
-npm run build
-npm start
-```
-
 ## HTTP routes
+
+Canonical prefix is `/api/v1` (unprefixed aliases also work).
 
 | Method | Path | Behavior |
 | --- | --- | --- |
-| `POST` | `/notebooks/:id/topics/propose` | Infer topics from vault chunk text. All `confirmed=false`. |
-| `POST` | `/notebooks/:id/topics/confirm` | Confirm inferred topics, or pass `{ names }` to set an **explicit already-confirmed** list (skips propose). |
-| `GET` | `/notebooks/:id/topics` | Current topic map. |
-| `POST` | `/notebooks/:id/quizzes` | Build a `kind: "pretest"` quiz + items. |
-| `POST` | `/quizzes/:id/attempts` | Body `{ item_id, selected_choice_id }` → `Attempt` + updated `TopicScore[]`. |
-| `GET` | `/notebooks/:id/scoreboard` | `{ topics, window: 20, proficiency_bar: 0.8 }`. |
+| `POST` | `/api/v1/notebooks/:id/topics/propose` | Infer topics from vault chunk text. All `confirmed=false`. |
+| `POST` | `/api/v1/notebooks/:id/topics/confirm` | Confirm inferred topics, or pass `{ names }` to set an **explicit already-confirmed** list (skips propose). |
+| `GET` | `/api/v1/notebooks/:id/topics` | Current topic map. |
+| `POST` | `/api/v1/notebooks/:id/quizzes` | Build a `kind: "pretest"` quiz + items. |
+| `POST` | `/api/v1/quizzes/:id/attempts` | Body `{ item_id, selected_choice_id }` → `Attempt` + updated `TopicScore[]`. |
+| `GET` | `/api/v1/notebooks/:id/scoreboard` | `{ topics, window: 20, proficiency_bar: 0.8 }`. |
 
 Gates:
 
@@ -57,25 +50,36 @@ Gates:
 
 ## VaultRetrieve contract (Backend)
 
-Study-logic **consumes** retrieval. Backend implements:
+Study-logic **consumes** retrieval. Backend implements (StubInference is fine for offline work):
 
 ```
-POST /notebooks/:id/retrieve   { query, top_k? }  → Chunk[]  (or { chunks: Chunk[] })
-GET  /chunks/:id                                  → Chunk
+POST /api/v1/notebooks/{notebook_id}/retrieve
+  body: { query: string, top_k?: number }   # default top_k = 8
+  → { chunks: [{ id, source_id, text, locator, score, source_filename? }] }
+
+GET  /api/v1/chunks/{chunk_id}
+  → full chunk + source metadata
 ```
 
 ```ts
-type Chunk = { id: string; text: string; source_id?: string; source_label?: string }
+type Chunk = {
+  id: string            // citation_chunk_id
+  source_id: string
+  text: string
+  locator: string
+  score: number
+  source_filename?: string  // source label
+}
 
 interface VaultRetrieve {
   retrieve(args: { notebook_id: string; query: string; top_k?: number }): Promise<Chunk[]>
 }
 ```
 
-- `HttpVaultRetrieve` calls those Backend routes.
-- `InMemoryVault` / `createFixtureVault()` are for tests and local smoke only (`notebook_id = nb_bio`).
+- `HttpVaultRetrieve` calls those Backend routes and reads `{ chunks }`.
+- `InMemoryVault` / `createFixtureVault()` are for tests and local smoke only (`notebook_id = nb_bio`). Fixture chunks use the same field names.
 
-A chunk is citable only when `id` and `text` are non-empty. Quiz items must have a non-empty `citation_chunk_ids` list pointing at **retrieved** chunk ids. Uncited items are dropped; if nothing remains, the engine returns `InsufficientEvidence`.
+A chunk is citable only when `id` and `text` are non-empty. Quiz items must have a non-empty `citation_chunk_ids` list pointing at **retrieved** `chunk.id` values. Uncited items are dropped; if nothing remains, the engine returns `InsufficientEvidence`.
 
 ## Scoreboard
 
@@ -92,11 +96,11 @@ A chunk is citable only when `id` and `text` are non-empty. Quiz items must have
 With `npm start` and the fixture vault:
 
 ```bash
-curl -s -X POST http://127.0.0.1:3000/notebooks/nb_bio/topics/propose
-curl -s -X POST http://127.0.0.1:3000/notebooks/nb_bio/topics/confirm
-curl -s -X POST http://127.0.0.1:3000/notebooks/nb_bio/quizzes
+curl -s -X POST http://127.0.0.1:3000/api/v1/notebooks/nb_bio/topics/propose
+curl -s -X POST http://127.0.0.1:3000/api/v1/notebooks/nb_bio/topics/confirm
+curl -s -X POST http://127.0.0.1:3000/api/v1/notebooks/nb_bio/quizzes
 # or skip propose with an explicit list:
-curl -s -X POST http://127.0.0.1:3000/notebooks/nb_bio/topics/confirm \
+curl -s -X POST http://127.0.0.1:3000/api/v1/notebooks/nb_bio/topics/confirm \
   -H 'content-type: application/json' \
   -d '{"names":["Mitosis","Meiosis"]}'
 ```

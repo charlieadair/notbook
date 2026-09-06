@@ -18,7 +18,10 @@ export function proposeTopicNames(chunks: Chunk[]): string[] {
   };
 
   for (const chunk of chunks) {
-    if (chunk.source_label) add(chunk.source_label);
+    if (chunk.source_filename) {
+      const stem = chunk.source_filename.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
+      if (/^[A-Z]/.test(stem) && stem.split(" ").length <= 4) add(stem);
+    }
     for (const line of chunk.text.split(/\r?\n/)) {
       const heading = line.trim().match(HEADING);
       if (heading) add(heading[1]);

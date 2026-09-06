@@ -2,29 +2,30 @@
 set -euo pipefail
 
 BASE="${1:-http://127.0.0.1:3000}"
+API="$BASE/api/v1"
 
 echo "== health"
-curl -sS "$BASE/health"
+curl -sS "$API/health"
 echo
 
 echo "== propose (inferred, unconfirmed)"
-curl -sS -X POST "$BASE/notebooks/nb_bio/topics/propose"
+curl -sS -X POST "$API/notebooks/nb_bio/topics/propose"
 echo
 
 echo "== quizzes before confirm (expect 409 TopicsUnconfirmed)"
-curl -sS -X POST "$BASE/notebooks/nb_bio/quizzes"
+curl -sS -X POST "$API/notebooks/nb_bio/quizzes"
 echo
 
 echo "== confirm inferred topics"
-curl -sS -X POST "$BASE/notebooks/nb_bio/topics/confirm"
+curl -sS -X POST "$API/notebooks/nb_bio/topics/confirm"
 echo
 
 echo "== list topics"
-curl -sS "$BASE/notebooks/nb_bio/topics"
+curl -sS "$API/notebooks/nb_bio/topics"
 echo
 
 echo "== create pretest"
-QUIZ_JSON="$(curl -sS -X POST "$BASE/notebooks/nb_bio/quizzes")"
+QUIZ_JSON="$(curl -sS -X POST "$API/notebooks/nb_bio/quizzes")"
 echo "$QUIZ_JSON"
 
 QUIZ_ID="$(node -e "const j=JSON.parse(process.argv[1]); process.stdout.write(j.quiz.id)" "$QUIZ_JSON")"
@@ -33,19 +34,19 @@ CHOICE_ID="$(node -e "const j=JSON.parse(process.argv[1]); process.stdout.write(
 
 echo
 echo "== grade attempt"
-curl -sS -X POST "$BASE/quizzes/${QUIZ_ID}/attempts" \
+curl -sS -X POST "$API/quizzes/${QUIZ_ID}/attempts" \
   -H 'content-type: application/json' \
   -d "{\"item_id\":\"${ITEM_ID}\",\"selected_choice_id\":\"${CHOICE_ID}\"}"
 echo
 
 echo "== scoreboard"
-curl -sS "$BASE/notebooks/nb_bio/scoreboard"
+curl -sS "$API/notebooks/nb_bio/scoreboard"
 echo
 
 echo "== empty vault (expect 422 InsufficientEvidence)"
-curl -sS -X POST "$BASE/notebooks/nb_empty/topics/confirm" \
+curl -sS -X POST "$API/notebooks/nb_empty/topics/confirm" \
   -H 'content-type: application/json' \
   -d '{"names":["Mitosis"]}'
 echo
-curl -sS -X POST "$BASE/notebooks/nb_empty/quizzes"
+curl -sS -X POST "$API/notebooks/nb_empty/quizzes"
 echo

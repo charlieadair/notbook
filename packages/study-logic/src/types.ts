@@ -66,12 +66,21 @@ export const PROFICIENCY_BAR = 0.8;
 export const SEVERE_RATE = 0.5;
 export const SEVERE_MISS_COUNT = 3;
 
+/** Backend retrieve hit. `id` is the citation_chunk_id. */
 export type Chunk = {
   id: string;
+  source_id: string;
   text: string;
-  source_id?: string;
-  source_label?: string;
+  locator: string;
+  score: number;
+  source_filename?: string;
 };
+
+export type RetrieveResponse = {
+  chunks: Chunk[];
+};
+
+export const DEFAULT_TOP_K = 8;
 
 export type RetrieveArgs = {
   notebook_id: string;

@@ -65,18 +65,18 @@ describe("HTTP confirm gate", () => {
     await Promise.all(servers.splice(0).map((s) => s.close()));
   });
 
-  it("POST /notebooks/:id/quizzes returns 409 until confirm", async () => {
+  it("POST /api/v1/notebooks/:id/quizzes returns 409 until confirm", async () => {
     const study = engine();
     const { base, close } = await listen(study);
     servers.push({ close });
 
-    await fetchJson(base, "POST", `/notebooks/${FIXTURE_NOTEBOOK_ID}/topics/propose`);
-    const refused = await fetchJson(base, "POST", `/notebooks/${FIXTURE_NOTEBOOK_ID}/quizzes`);
+    await fetchJson(base, "POST", `/api/v1/notebooks/${FIXTURE_NOTEBOOK_ID}/topics/propose`);
+    const refused = await fetchJson(base, "POST", `/api/v1/notebooks/${FIXTURE_NOTEBOOK_ID}/quizzes`);
     expect(refused.status).toBe(409);
     expect(refused.body.error).toBe("TopicsUnconfirmed");
 
-    await fetchJson(base, "POST", `/notebooks/${FIXTURE_NOTEBOOK_ID}/topics/confirm`);
-    const ok = await fetchJson(base, "POST", `/notebooks/${FIXTURE_NOTEBOOK_ID}/quizzes`);
+    await fetchJson(base, "POST", `/api/v1/notebooks/${FIXTURE_NOTEBOOK_ID}/topics/confirm`);
+    const ok = await fetchJson(base, "POST", `/api/v1/notebooks/${FIXTURE_NOTEBOOK_ID}/quizzes`);
     expect(ok.status).toBe(200);
     expect(ok.body.quiz.kind).toBe("pretest");
     expect(ok.body.items.length).toBeGreaterThan(0);

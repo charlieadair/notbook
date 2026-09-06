@@ -29,4 +29,5 @@ export type {
   GradeAttemptResult,
   GeneratedQuiz,
 } from "./types.js";
-export { SCORE_WINDOW, PROFICIENCY_BAR } from "./types.js";
+export { SCORE_WINDOW, PROFICIENCY_BAR, DEFAULT_TOP_K } from "./types.js";
+export type { RetrieveResponse } from "./types.js";

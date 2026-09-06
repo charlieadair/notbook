@@ -14,21 +14,27 @@ type RouteContext = {
   body: unknown;
 };
 
+const API_PREFIX = "/api/v1";
+
+function path(pattern: string): RegExp {
+  return new RegExp(`^(?:${API_PREFIX})?${pattern}$`);
+}
+
 export function createStudyServer(engine: StudyEngine): Server {
   const routes: Route[] = [
     {
       method: "GET",
-      pattern: /^\/health$/,
+      pattern: path("/health"),
       handler: () => ({ ok: true, service: "study-logic" }),
     },
     {
       method: "POST",
-      pattern: /^\/notebooks\/([^/]+)\/topics\/propose$/,
+      pattern: path("/notebooks/([^/]+)/topics/propose"),
       handler: ({ engine, params }) => engine.proposeTopics(params[0]),
     },
     {
       method: "POST",
-      pattern: /^\/notebooks\/([^/]+)\/topics\/confirm$/,
+      pattern: path("/notebooks/([^/]+)/topics/confirm"),
       handler: ({ engine, params, body }) => {
         const input = asObject(body);
         return engine.confirmTopics(params[0], {
@@ -39,17 +45,17 @@ export function createStudyServer(engine: StudyEngine): Server {
     },
     {
       method: "GET",
-      pattern: /^\/notebooks\/([^/]+)\/topics$/,
+      pattern: path("/notebooks/([^/]+)/topics"),
       handler: ({ engine, params }) => engine.listTopics(params[0]),
     },
     {
       method: "POST",
-      pattern: /^\/notebooks\/([^/]+)\/quizzes$/,
+      pattern: path("/notebooks/([^/]+)/quizzes"),
       handler: ({ engine, params }) => engine.createQuiz(params[0]),
     },
     {
       method: "POST",
-      pattern: /^\/quizzes\/([^/]+)\/attempts$/,
+      pattern: path("/quizzes/([^/]+)/attempts"),
       handler: ({ engine, params, body }) => {
         const input = asObject(body);
         return engine.gradeAttempt(params[0], {
@@ -60,7 +66,7 @@ export function createStudyServer(engine: StudyEngine): Server {
     },
     {
       method: "GET",
-      pattern: /^\/notebooks\/([^/]+)\/scoreboard$/,
+      pattern: path("/notebooks/([^/]+)/scoreboard"),
       handler: ({ engine, params }) => engine.scoreboard(params[0]),
     },
   ];

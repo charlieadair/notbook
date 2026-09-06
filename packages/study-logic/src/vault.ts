@@ -1,4 +1,4 @@
-import type { Chunk, RetrieveArgs, VaultRetrieve } from "./types.js";
+import { DEFAULT_TOP_K, type Chunk, type RetrieveArgs, type VaultRetrieve } from "./types.js";
 
 export function isCitableChunk(chunk: Chunk): boolean {
   return Boolean(chunk.id?.trim()) && Boolean(chunk.text?.trim());
@@ -6,9 +6,9 @@ export function isCitableChunk(chunk: Chunk): boolean {
 
 /**
  * In-memory fixture vault for tests and local smoke.
- * Backend should implement VaultRetrieve against:
- *   POST /notebooks/:id/retrieve  { query, top_k? } → Chunk[]
- *   GET  /chunks/:id              → Chunk
+ * Backend owns the real vault:
+ *   POST /api/v1/notebooks/{notebook_id}/retrieve  { query, top_k? } → { chunks }
+ *   GET  /api/v1/chunks/{chunk_id}                 → Chunk
  */
 export class InMemoryVault implements VaultRetrieve {
   private readonly chunks = new Map<string, Chunk[]>();
@@ -38,28 +38,29 @@ export class InMemoryVault implements VaultRetrieve {
   }
 
   async retrieve(args: RetrieveArgs): Promise<Chunk[]> {
-    const topK = args.top_k ?? 8;
+    const topK = args.top_k ?? DEFAULT_TOP_K;
     const all = this.chunks.get(args.notebook_id) ?? [];
     const query = args.query.trim().toLowerCase();
     if (!query) {
-      return all.filter(isCitableChunk).slice(0, topK).map((c) => ({ ...c }));
+      return all
+        .filter(isCitableChunk)
+        .slice(0, topK)
+        .map((c) => ({ ...c, score: c.score ?? 1 }));
     }
 
     const terms = query.split(/\s+/).filter(Boolean);
-    const ranked = all
+    return all
       .filter(isCitableChunk)
       .map((chunk) => ({ chunk, score: scoreChunk(chunk, query, terms) }))
       .filter((row) => row.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, topK)
-      .map((row) => ({ ...row.chunk }));
-
-    return ranked;
+      .map((row) => ({ ...row.chunk, score: row.score }));
   }
 }
 
 function scoreChunk(chunk: Chunk, query: string, terms: string[]): number {
-  const hay = `${chunk.text} ${chunk.source_label ?? ""} ${chunk.source_id ?? ""}`.toLowerCase();
+  const hay = `${chunk.text} ${chunk.source_filename ?? ""} ${chunk.source_id} ${chunk.locator}`.toLowerCase();
   let score = 0;
   if (hay.includes(query)) score += 5;
   for (const term of terms) {
@@ -69,28 +70,27 @@ function scoreChunk(chunk: Chunk, query: string, terms: string[]): number {
 }
 
 /**
- * HTTP adapter for a real Backend vault. Study-logic consumes these routes;
- * it does not own embeddings or OCR.
+ * HTTP adapter for Backend vault. baseUrl is the origin (no /api/v1 suffix).
  */
 export class HttpVaultRetrieve implements VaultRetrieve {
   constructor(private readonly baseUrl: string) {}
 
   async retrieve(args: RetrieveArgs): Promise<Chunk[]> {
-    const url = `${trimSlash(this.baseUrl)}/notebooks/${encodeURIComponent(args.notebook_id)}/retrieve`;
+    const url = `${trimSlash(this.baseUrl)}/api/v1/notebooks/${encodeURIComponent(args.notebook_id)}/retrieve`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ query: args.query, top_k: args.top_k }),
+      body: JSON.stringify({ query: args.query, top_k: args.top_k ?? DEFAULT_TOP_K }),
     });
     if (!res.ok) {
       throw new Error(`Vault retrieve failed: ${res.status}`);
     }
-    const body = (await res.json()) as { chunks?: Chunk[] } | Chunk[];
-    return Array.isArray(body) ? body : (body.chunks ?? []);
+    const body = (await res.json()) as { chunks?: Chunk[] };
+    return body.chunks ?? [];
   }
 
   async getChunk(id: string): Promise<Chunk | undefined> {
-    const url = `${trimSlash(this.baseUrl)}/chunks/${encodeURIComponent(id)}`;
+    const url = `${trimSlash(this.baseUrl)}/api/v1/chunks/${encodeURIComponent(id)}`;
     const res = await fetch(url);
     if (res.status === 404) return undefined;
     if (!res.ok) {
@@ -111,30 +111,36 @@ export function fixtureChunks(): Chunk[] {
     {
       id: "chunk_mitosis",
       source_id: "notes-cell-cycle",
-      source_label: "Mitosis",
       text:
         "# Mitosis\n" +
         "Mitosis is a type of cell division that produces two genetically identical daughter cells. " +
         "The stages of mitosis are prophase, metaphase, anaphase, and telophase. " +
         "During metaphase, chromosomes align at the cell equator.",
+      locator: "notes-cell-cycle.md#mitosis",
+      score: 1,
+      source_filename: "notes-cell-cycle.md",
     },
     {
       id: "chunk_meiosis",
       source_id: "notes-cell-cycle",
-      source_label: "Meiosis",
       text:
         "# Meiosis\n" +
         "Meiosis produces four haploid gametes and includes two rounds of division. " +
         "Crossing over occurs during prophase I and increases genetic variation.",
+      locator: "notes-cell-cycle.md#meiosis",
+      score: 1,
+      source_filename: "notes-cell-cycle.md",
     },
     {
       id: "chunk_photosynthesis",
       source_id: "notes-energy",
-      source_label: "Photosynthesis",
       text:
         "# Photosynthesis\n" +
         "Photosynthesis converts light energy into chemical energy stored in sugars. " +
         "The light-dependent reactions occur in the thylakoid membrane and produce ATP and NADPH.",
+      locator: "notes-energy.md#photosynthesis",
+      score: 1,
+      source_filename: "notes-energy.md",
     },
   ];
 }

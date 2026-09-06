@@ -15,7 +15,16 @@ describe("empty vault", () => {
 
   it("does not invent items when retrieve returns no citable chunks", async () => {
     const vault = new InMemoryVault({
-      nb_blank: [{ id: "chunk_blank", text: "   " }],
+      nb_blank: [
+        {
+          id: "chunk_blank",
+          source_id: "blank",
+          text: "   ",
+          locator: "blank.md",
+          score: 0,
+          source_filename: "blank.md",
+        },
+      ],
     });
     const study = new StudyEngine({ vault });
     study.confirmTopics("nb_blank", { names: ["Anything"] });
