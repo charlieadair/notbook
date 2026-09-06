@@ -22,6 +22,15 @@ export class ApiError extends Error {
     const code = normalizeCode(this.code);
     return this.status === 422 || code === "insufficientevidence" || code === "insufficient_evidence";
   }
+
+  get isNotFound(): boolean {
+    return this.status === 404 || normalizeCode(this.code) === "notfound";
+  }
+
+  /** Study-logic S1 routes are not mounted yet (404) or not implemented (501). */
+  get isUnavailable(): boolean {
+    return this.isNotFound || this.status === 501;
+  }
 }
 
 function normalizeCode(code: string): string {

@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { ApiError, parseErrorBody } from "./errors";
 import {
+  toChat,
+  toChats,
   toChunk,
   toGeneratedQuiz,
   toGradeAttemptResult,
+  toHandoff,
+  toHandoffs,
   toHealth,
   toNotebooks,
   toScoreboard,
   toSource,
+  toSpawnOffer,
   toTopics,
 } from "./normalize";
 
@@ -99,12 +104,56 @@ describe("normalize", () => {
   });
 });
 
+describe("S1 chat-tree normalize", () => {
+  it("reads spawn-offer envelopes from issue #22", () => {
+    const offer = toSpawnOffer(
+      {
+        notebook_id: "nb",
+        candidates: [
+          { topic_id: "t1", severity: "severe", reason: "5 misses" },
+          { topic_id: "t2", severity: "mild", reason: "2 misses" },
+        ],
+        max_spawn: 2,
+      },
+      "nb",
+    );
+    expect(offer.candidates).toHaveLength(2);
+    expect(offer.max_spawn).toBe(2);
+    expect(toSpawnOffer({ offer: { candidates: [{ id: "x", severity: "severe" }], max_spawn: 2 } }).candidates[0].topic_id).toBe(
+      "x",
+    );
+  });
+
+  it("reads chat, specialist list, and handoff wrappers", () => {
+    const chat = toChat({
+      chat: { id: "c1", notebook_id: "nb", kind: "specialist", topic_ids: ["t1"], status: "open", created_at: "now" },
+    });
+    expect(chat.kind).toBe("specialist");
+    expect(toChats({ chats: [chat] })).toHaveLength(1);
+    const handoff = toHandoff({
+      handoff: {
+        id: "h1",
+        from_chat_id: "c1",
+        to_chat_id: "orch",
+        topic_ids: ["t1"],
+        summary: "Back from eigenvalues",
+        scoreboard_snapshot: [{ topic_id: "t1", correct_rate: 0.4, severity: "severe" }],
+        created_at: "now",
+      },
+    });
+    expect(handoff.summary).toMatch(/eigenvalues/);
+    expect(handoff.scoreboard_snapshot[0].severity).toBe("severe");
+    expect(toHandoffs({ handoffs: [handoff] })).toHaveLength(1);
+  });
+});
+
 describe("ApiError", () => {
   it("classifies 409 topics_unconfirmed and 422 insufficient_evidence", () => {
     const gate = new ApiError(409, "topics_unconfirmed", "confirm first");
     const thin = new ApiError(422, "insufficient_evidence", "no chunks");
     expect(gate.isTopicsUnconfirmed).toBe(true);
     expect(thin.isInsufficientEvidence).toBe(true);
+    expect(new ApiError(404, "NotFound", "missing").isUnavailable).toBe(true);
     expect(parseErrorBody({ error: "topics_unconfirmed" }).code).toBe("topics_unconfirmed");
     expect(parseErrorBody({ error: "insufficient_evidence" }).code).toBe("insufficient_evidence");
   });

@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { useApi } from "../api/ApiContext";
-import type { Topic, TopicScore } from "../api/types";
+import type { Topic } from "../api/types";
 import { Banner } from "../components/Banner";
+import { ScoreRow } from "../components/ScoreRow";
+import { SpawnOfferPanel } from "../components/SpawnOfferPanel";
 import { useAsync } from "../hooks/useAsync";
 import { errorMessage, formatPercent } from "../lib/format";
 
@@ -12,6 +15,7 @@ export function Scoreboard() {
   const api = useApi();
   const board = useAsync(() => api.getScoreboard(notebookId), [api, notebookId]);
   const topics = useAsync(() => api.listTopics(notebookId), [api, notebookId]);
+  const [hasOffer, setHasOffer] = useState(false);
 
   const names = new Map((topics.data ?? []).map((t: Topic) => [t.id, t.name]));
   const rows = board.data?.topics ?? [];
@@ -41,44 +45,26 @@ export function Scoreboard() {
         <ScoreRow key={row.topic_id} row={row} name={row.name ?? names.get(row.topic_id) ?? row.topic_id} bar={bar} />
       ))}
 
+      {!board.loading && rows.length > 0 ? (
+        <SpawnOfferPanel notebookId={notebookId} onAvailability={setHasOffer} />
+      ) : null}
+
       <div className="row">
-        <Link className="btn btn-primary" to={`/notebooks/${notebookId}/quiz`}>
+        <Link
+          className={hasOffer ? "btn btn-ghost" : "btn btn-primary"}
+          to={`/notebooks/${notebookId}/quiz`}
+        >
           Take another pretest
         </Link>
         <Link className="btn btn-ghost" to={`/notebooks/${notebookId}/vault`}>
           Inspect vault
         </Link>
+        {rows.length > 0 ? (
+          <Link className="btn btn-ghost" to={`/notebooks/${notebookId}/orchestrator`}>
+            Orchestrator
+          </Link>
+        ) : null}
       </div>
     </div>
-  );
-}
-
-function ScoreRow({ row, name, bar }: { row: TopicScore; name: string; bar: number }) {
-  const width = Math.max(0, Math.min(100, Math.round(row.correct_rate * 100)));
-  return (
-    <article className="paper">
-      <div className="list-row">
-        <div>
-          <h2>{name}</h2>
-          <p className="muted">
-            {row.correct_count}/{row.attempt_count} correct
-            {row.attempt_count ? ` · ${formatPercent(row.correct_rate)}` : ""}
-          </p>
-        </div>
-        <div className="row">
-          <span className={`badge ${row.proficient ? "badge-ok" : "badge-pending"}`}>
-            {row.proficient ? "Proficient" : `Below ${formatPercent(bar)}`}
-          </span>
-          <span className={`badge badge-${row.severity}`}>{row.severity}</span>
-        </div>
-      </div>
-      <div
-        className={`meter meter-mark meter-${row.severity}`}
-        role="img"
-        aria-label={`${formatPercent(row.correct_rate)} correct; bar at ${formatPercent(bar)}`}
-      >
-        <span style={{ width: `${width}%` }} />
-      </div>
-    </article>
   );
 }

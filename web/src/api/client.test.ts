@@ -117,6 +117,90 @@ describe("HttpStudyApi.createPretest", () => {
   });
 });
 
+describe("HttpStudyApi S1 stubs", () => {
+  it("GETs spawn-offer / chats / handoffs and POSTs specialists + close", async () => {
+    const urls: string[] = [];
+    const fetchFn = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      urls.push(`${init?.method ?? "GET"} ${url}`);
+      if (url.endsWith("/spawn-offer")) {
+        return jsonResponse(200, {
+          candidates: [{ topic_id: "t1", severity: "severe", reason: "5 misses" }],
+          max_spawn: 2,
+        });
+      }
+      if (url.endsWith("/chats/specialists")) {
+        return jsonResponse(200, {
+          chats: [{ id: "c1", notebook_id: "nb", kind: "specialist", topic_ids: ["t1"], status: "open", created_at: "t" }],
+        });
+      }
+      if (url.endsWith("/chats/orchestrator")) {
+        return jsonResponse(200, {
+          id: "orch",
+          notebook_id: "nb",
+          kind: "orchestrator",
+          topic_ids: [],
+          status: "open",
+          created_at: "t",
+        });
+      }
+      if (url.endsWith("/chats")) {
+        return jsonResponse(200, { chats: [] });
+      }
+      if (url.endsWith("/close")) {
+        return jsonResponse(200, {
+          id: "h1",
+          from_chat_id: "c1",
+          to_chat_id: "orch",
+          topic_ids: ["t1"],
+          summary: "Done",
+          scoreboard_snapshot: [],
+          created_at: "t",
+        });
+      }
+      if (url.endsWith("/handoffs")) {
+        return jsonResponse(200, { handoffs: [] });
+      }
+      return jsonResponse(500, { error: "unexpected" });
+    });
+    const api = new HttpStudyApi({ baseUrl: "http://127.0.0.1:8000/api/v1", fetchFn });
+    const offer = await api.getSpawnOffer("nb");
+    expect(offer.candidates[0].topic_id).toBe("t1");
+    expect(offer.max_spawn).toBe(2);
+    const created = await api.createSpecialists("nb", ["t1"]);
+    expect(created[0].id).toBe("c1");
+    const handoff = await api.closeChat("c1");
+    expect(handoff.summary).toBe("Done");
+    await api.listChats("nb");
+    await api.listHandoffs("nb");
+    await api.getOrCreateOrchestrator("nb");
+    expect(urls).toEqual([
+      "GET http://127.0.0.1:8000/api/v1/notebooks/nb/spawn-offer",
+      "POST http://127.0.0.1:8000/api/v1/notebooks/nb/chats/specialists",
+      "POST http://127.0.0.1:8000/api/v1/chats/c1/close",
+      "GET http://127.0.0.1:8000/api/v1/notebooks/nb/chats",
+      "GET http://127.0.0.1:8000/api/v1/notebooks/nb/handoffs",
+      "POST http://127.0.0.1:8000/api/v1/notebooks/nb/chats/orchestrator",
+    ]);
+  });
+
+  it("returns empty S1 reads on 404 so the S0 spine stays usable", async () => {
+    const fetchFn = vi.fn(async () => jsonResponse(404, { error: "NotFound" }));
+    const api = new HttpStudyApi({ baseUrl: "http://127.0.0.1:8000/api/v1", fetchFn });
+    await expect(api.getSpawnOffer("nb")).resolves.toEqual({
+      notebook_id: "nb",
+      candidates: [],
+      max_spawn: 2,
+    });
+    await expect(api.listChats("nb")).resolves.toEqual([]);
+    await expect(api.listHandoffs("nb")).resolves.toEqual([]);
+    await expect(api.listChatMessages("c1")).resolves.toEqual([]);
+    await expect(api.getOrCreateOrchestrator("nb")).resolves.toBeNull();
+    await expect(api.getChat("c1")).resolves.toBeNull();
+    await expect(api.sendChatMessage("c1", { content: "hi" })).resolves.toBeNull();
+  });
+});
+
 describe("MockStudyApi S0 path", () => {
   it("gates pretest until confirm and requires chunks", async () => {
     const api = new MockStudyApi();
@@ -146,6 +230,49 @@ describe("MockStudyApi S0 path", () => {
     expect(board.window).toBe(20);
     expect(board.proficiency_bar).toBe(0.8);
     expect(board.topics.length).toBeGreaterThan(0);
+  });
+
+  it("runs S1 offer → specialist → close handoff without breaking the scoreboard", async () => {
+    const api = new MockStudyApi();
+    const nb = await api.createNotebook("LinAlg");
+    await api.pasteSource(nb.id, {
+      text: "Eigenvalues solve Av = λv for nonzero v. Linear regression minimizes squared residual error.",
+    });
+    const proposed = await api.proposeTopics(nb.id);
+    await api.confirmTopics(nb.id, { topic_ids: proposed.map((t) => t.id) });
+    const quiz = await api.createPretest(nb.id);
+    for (const item of quiz.items) {
+      const wrong = item.choices.find((c) => c.id !== item.correct_choice_id)?.id ?? item.choices[0].id;
+      await api.submitAttempt(quiz.quiz.id, { item_id: item.id, selected_choice_id: wrong });
+    }
+    const before = await api.getScoreboard(nb.id);
+    expect(before.topics.length).toBeGreaterThan(0);
+
+    const offer = await api.getSpawnOffer(nb.id);
+    expect(offer.max_spawn).toBe(2);
+    expect(offer.candidates.length).toBeGreaterThan(0);
+    expect(offer.candidates.length).toBeLessThanOrEqual(2);
+
+    const specialists = await api.createSpecialists(
+      nb.id,
+      offer.candidates.map((c) => c.topic_id),
+    );
+    expect(specialists.length).toBeGreaterThan(0);
+    expect(specialists.every((c) => c.kind === "specialist" && c.status === "open")).toBe(true);
+
+    await api.sendChatMessage(specialists[0].id, { content: "Stay on this topic." });
+    const handoff = await api.closeChat(specialists[0].id);
+    expect(handoff.summary.length).toBeGreaterThan(0);
+    expect(handoff.topic_ids).toEqual(specialists[0].topic_ids);
+    const landed = await api.listHandoffs(nb.id);
+    expect(landed.some((h) => h.id === handoff.id)).toBe(true);
+    const orch = await api.getOrCreateOrchestrator(nb.id);
+    expect(orch?.kind).toBe("orchestrator");
+    expect(handoff.to_chat_id).toBe(orch?.id);
+
+    const after = await api.getScoreboard(nb.id);
+    expect(after.window).toBe(20);
+    expect(after.topics.length).toBe(before.topics.length);
   });
 
   it("marks extract failed when the filename includes fail", async () => {
