@@ -1,4 +1,10 @@
-import { DEFAULT_TOP_K, type Chunk, type RetrieveArgs, type VaultRetrieve } from "./types.js";
+import {
+  DEFAULT_TOP_K,
+  type Chunk,
+  type RetrieveArgs,
+  type RetrieveResponse,
+  type VaultRetrieve,
+} from "./types.js";
 
 export function isCitableChunk(chunk: Chunk): boolean {
   return Boolean(chunk.id?.trim()) && Boolean(chunk.text?.trim());
@@ -6,9 +12,9 @@ export function isCitableChunk(chunk: Chunk): boolean {
 
 /**
  * In-memory fixture vault for tests and local smoke.
- * Backend owns the real vault (S0 sketch):
- *   POST /notebooks/:id/retrieve  { query } → citable chunks
- *   GET  /chunks/:id
+ * Backend owns the real vault:
+ *   POST /api/v1/notebooks/{notebook_id}/retrieve  { query, top_k? } → { chunks }
+ *   GET  /api/v1/chunks/{chunk_id}
  */
 export class InMemoryVault implements VaultRetrieve {
   private readonly chunks = new Map<string, Chunk[]>();
@@ -38,24 +44,34 @@ export class InMemoryVault implements VaultRetrieve {
   }
 
   async retrieve(args: RetrieveArgs): Promise<Chunk[]> {
+    const envelope = await this.retrieveEnvelope(args);
+    return envelope.chunks;
+  }
+
+  /** Same wire shape as Backend: `{ chunks: Chunk[] }`. */
+  async retrieveEnvelope(args: RetrieveArgs): Promise<RetrieveResponse> {
     const topK = args.top_k ?? DEFAULT_TOP_K;
     const all = this.chunks.get(args.notebook_id) ?? [];
     const query = args.query.trim().toLowerCase();
     if (!query) {
-      return all
-        .filter(isCitableChunk)
-        .slice(0, topK)
-        .map((c) => ({ ...c, score: c.score ?? 1 }));
+      return {
+        chunks: all
+          .filter(isCitableChunk)
+          .slice(0, topK)
+          .map((c) => ({ ...c, score: c.score ?? 1 })),
+      };
     }
 
     const terms = query.split(/\s+/).filter(Boolean);
-    return all
-      .filter(isCitableChunk)
-      .map((chunk) => ({ chunk, score: scoreChunk(chunk, query, terms) }))
-      .filter((row) => row.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, topK)
-      .map((row) => ({ ...row.chunk, score: row.score }));
+    return {
+      chunks: all
+        .filter(isCitableChunk)
+        .map((chunk) => ({ chunk, score: scoreChunk(chunk, query, terms) }))
+        .filter((row) => row.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, topK)
+        .map((row) => ({ ...row.chunk, score: row.score })),
+    };
   }
 }
 
@@ -70,15 +86,15 @@ function scoreChunk(chunk: Chunk, query: string, terms: string[]): number {
 }
 
 /**
- * HTTP adapter for Backend vault. Calls the S0 sketch paths:
- *   POST /notebooks/:id/retrieve  { query }
- *   GET  /chunks/:id
+ * HTTP adapter for Backend vault.
+ *   POST /api/v1/notebooks/{notebook_id}/retrieve  { query, top_k? } → { chunks }
+ *   GET  /api/v1/chunks/{chunk_id}
  */
 export class HttpVaultRetrieve implements VaultRetrieve {
   constructor(private readonly baseUrl: string) {}
 
   async retrieve(args: RetrieveArgs): Promise<Chunk[]> {
-    const url = `${trimSlash(this.baseUrl)}/notebooks/${encodeURIComponent(args.notebook_id)}/retrieve`;
+    const url = `${trimSlash(this.baseUrl)}/api/v1/notebooks/${encodeURIComponent(args.notebook_id)}/retrieve`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -87,11 +103,12 @@ export class HttpVaultRetrieve implements VaultRetrieve {
     if (!res.ok) {
       throw new Error(`Vault retrieve failed: ${res.status}`);
     }
-    return parseRetrieveBody(await res.json());
+    const body = (await res.json()) as RetrieveResponse;
+    return Array.isArray(body.chunks) ? body.chunks : [];
   }
 
   async getChunk(id: string): Promise<Chunk | undefined> {
-    const url = `${trimSlash(this.baseUrl)}/chunks/${encodeURIComponent(id)}`;
+    const url = `${trimSlash(this.baseUrl)}/api/v1/chunks/${encodeURIComponent(id)}`;
     const res = await fetch(url);
     if (res.status === 404) return undefined;
     if (!res.ok) {
@@ -99,14 +116,6 @@ export class HttpVaultRetrieve implements VaultRetrieve {
     }
     return (await res.json()) as Chunk;
   }
-}
-
-function parseRetrieveBody(body: unknown): Chunk[] {
-  if (Array.isArray(body)) return body as Chunk[];
-  if (body && typeof body === "object" && Array.isArray((body as { chunks?: unknown }).chunks)) {
-    return (body as { chunks: Chunk[] }).chunks;
-  }
-  return [];
 }
 
 function trimSlash(url: string): string {

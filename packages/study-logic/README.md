@@ -27,16 +27,16 @@ npm start          # thin HTTP server on PORT (default 3000)
 
 ## HTTP routes
 
-S0 sketch paths (exact). The thin server also accepts an `/api/v1` prefix as an alias.
+Preferred prefix is `/api/v1` (matches Backend). Unprefixed aliases still work.
 
 | Method | Path | Behavior |
 | --- | --- | --- |
-| `POST` | `/notebooks/:id/topics/propose` | Infer topics from vault chunk text. All `confirmed=false`. |
-| `POST` | `/notebooks/:id/topics/confirm` | Confirm inferred topics, or pass `{ names }` to set an **explicit already-confirmed** list (skips propose). |
-| `GET` | `/notebooks/:id/topics` | Current topic map. |
-| `POST` | `/notebooks/:id/quizzes` | Build a `kind: "pretest"` quiz + items. **Not** `/quizzes/pretest`. |
-| `POST` | `/quizzes/:id/attempts` | Body `{ item_id, selected_choice_id }` → `Attempt` + updated `TopicScore[]`. |
-| `GET` | `/notebooks/:id/scoreboard` | `{ topics, window: 20, proficiency_bar: 0.8 }`. |
+| `POST` | `/api/v1/notebooks/:id/topics/propose` | Infer topics from vault chunk text. All `confirmed=false`. |
+| `POST` | `/api/v1/notebooks/:id/topics/confirm` | Confirm inferred topics, or pass `{ names }` to set an **explicit already-confirmed** list (skips propose). |
+| `GET` | `/api/v1/notebooks/:id/topics` | Current topic map. |
+| `POST` | `/api/v1/notebooks/:id/quizzes` | Build a `kind: "pretest"` quiz + items. **Not** `/quizzes/pretest`. |
+| `POST` | `/api/v1/quizzes/:id/attempts` | Body `{ item_id, selected_choice_id }` → `Attempt` + updated `TopicScore[]`. |
+| `GET` | `/api/v1/notebooks/:id/scoreboard` | `{ topics, window: 20, proficiency_bar: 0.8 }`. |
 
 Gates:
 
@@ -45,7 +45,7 @@ Gates:
 
 ## Confirm rule (SPEC §4/§12)
 
-- **Explicit list up front:** `POST /notebooks/:id/topics/confirm` with `{ names: ["Mitosis", ...] }` (or `{ topics }`) writes those topics as **already confirmed**. Skip `propose`.
+- **Explicit list up front:** `POST /api/v1/notebooks/:id/topics/confirm` with `{ names: ["Mitosis", ...] }` (or `{ topics }`) writes those topics as **already confirmed**. Skip `propose`.
 - **Inferred from materials only:** `propose` (always `confirmed=false`) → `confirm` (no body, or `{ topic_ids }`).
 
 ## VaultRetrieve contract (Backend)
@@ -53,11 +53,11 @@ Gates:
 Study-logic **consumes** retrieval. Backend implements (do not reimplement the vault here):
 
 ```
-POST /notebooks/:id/retrieve
+POST /api/v1/notebooks/{notebook_id}/retrieve
   body: { query: string, top_k?: number }
-  → Chunk[] or { chunks: Chunk[] }
+  → { chunks: [{ id, source_id, text, locator, score, source_filename? }] }
 
-GET  /chunks/:id
+GET  /api/v1/chunks/{chunk_id}
   → Chunk
 ```
 
@@ -76,8 +76,8 @@ interface VaultRetrieve {
 }
 ```
 
-- `HttpVaultRetrieve` calls those Backend routes. It accepts a raw chunk array or `{ chunks }`.
-- `InMemoryVault` / `createFixtureVault()` are for tests and local smoke only (`notebook_id = nb_bio`). Fixture chunks use the same field names.
+- `HttpVaultRetrieve` calls those Backend routes and reads `{ chunks }`. `chunk.id` is the citation id on quiz items.
+- `InMemoryVault` / `createFixtureVault()` are for tests and local smoke only (`notebook_id = nb_bio`). Fixture retrieve returns the same `{ chunks }` shape.
 
 A chunk is citable only when `id` and `text` are non-empty. Quiz items must have a non-empty `citation_chunk_ids` list pointing at **retrieved** `chunk.id` values. Uncited items are dropped; if nothing remains, the engine returns `InsufficientEvidence`.
 
@@ -96,11 +96,11 @@ A chunk is citable only when `id` and `text` are non-empty. Quiz items must have
 With `npm start` and the fixture vault:
 
 ```bash
-curl -s -X POST http://127.0.0.1:3000/notebooks/nb_bio/topics/propose
-curl -s -X POST http://127.0.0.1:3000/notebooks/nb_bio/topics/confirm
-curl -s -X POST http://127.0.0.1:3000/notebooks/nb_bio/quizzes
+curl -s -X POST http://127.0.0.1:3000/api/v1/notebooks/nb_bio/topics/propose
+curl -s -X POST http://127.0.0.1:3000/api/v1/notebooks/nb_bio/topics/confirm
+curl -s -X POST http://127.0.0.1:3000/api/v1/notebooks/nb_bio/quizzes
 # or skip propose with an explicit list:
-curl -s -X POST http://127.0.0.1:3000/notebooks/nb_bio/topics/confirm \
+curl -s -X POST http://127.0.0.1:3000/api/v1/notebooks/nb_bio/topics/confirm \
   -H 'content-type: application/json' \
   -d '{"names":["Mitosis","Meiosis"]}'
 ```

@@ -1,17 +1,27 @@
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_TOP_K } from "../src/types.js";
-import { fixtureChunks, HttpVaultRetrieve, InMemoryVault } from "../src/vault.js";
+import { createFixtureVault, fixtureChunks, HttpVaultRetrieve, InMemoryVault } from "../src/vault.js";
+
+const REQUIRED_FIELDS = ["id", "source_id", "text", "locator", "score"] as const;
 
 describe("VaultRetrieve contract", () => {
-  it("fixture chunks use Backend field names", () => {
-    for (const chunk of fixtureChunks()) {
-      expect(chunk.id).toBeTruthy();
-      expect(chunk.source_id).toBeTruthy();
-      expect(chunk.text.trim().length).toBeGreaterThan(0);
-      expect(chunk.locator).toBeTruthy();
+  it("fixture retrieve returns Backend Chunk shape inside { chunks }", async () => {
+    const vault = createFixtureVault();
+    const envelope = await vault.retrieveEnvelope({
+      notebook_id: "nb_bio",
+      query: "Mitosis",
+      top_k: 8,
+    });
+    expect(Array.isArray(envelope.chunks)).toBe(true);
+    expect(envelope.chunks.length).toBeGreaterThan(0);
+    for (const chunk of envelope.chunks) {
+      for (const field of REQUIRED_FIELDS) {
+        expect(chunk[field], field).toBeDefined();
+      }
       expect(typeof chunk.score).toBe("number");
-      expect(chunk.source_filename).toBeTruthy();
+      expect(chunk.text.trim().length).toBeGreaterThan(0);
     }
+    expect(fixtureChunks().every((c) => REQUIRED_FIELDS.every((f) => c[f] !== undefined))).toBe(true);
   });
 
   it("defaults retrieve top_k to 8", async () => {
@@ -28,28 +38,30 @@ describe("VaultRetrieve contract", () => {
     expect(hits).toHaveLength(DEFAULT_TOP_K);
   });
 
-  it("HttpVaultRetrieve calls POST /notebooks/:id/retrieve and GET /chunks/:id", async () => {
+  it("HttpVaultRetrieve calls POST /api/v1/notebooks/:id/retrieve and reads { chunks }", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url === "http://backend.local/notebooks/nb_bio/retrieve") {
+      if (url === "http://backend.local/api/v1/notebooks/nb_bio/retrieve") {
         expect(init?.method).toBe("POST");
         const body = JSON.parse(String(init?.body));
-        expect(body.query).toBe("Mitosis");
+        expect(body).toEqual({ query: "Mitosis", top_k: 8 });
         return new Response(
-          JSON.stringify([
-            {
-              id: "chunk_mitosis",
-              source_id: "notes-cell-cycle",
-              text: "Mitosis produces two identical daughter cells.",
-              locator: "notes-cell-cycle.md#mitosis",
-              score: 0.9,
-              source_filename: "notes-cell-cycle.md",
-            },
-          ]),
+          JSON.stringify({
+            chunks: [
+              {
+                id: "chunk_mitosis",
+                source_id: "notes-cell-cycle",
+                text: "Mitosis produces two identical daughter cells.",
+                locator: "notes-cell-cycle.md#mitosis",
+                score: 0.9,
+                source_filename: "notes-cell-cycle.md",
+              },
+            ],
+          }),
           { status: 200, headers: { "content-type": "application/json" } },
         );
       }
-      if (url === "http://backend.local/chunks/chunk_mitosis") {
+      if (url === "http://backend.local/api/v1/chunks/chunk_mitosis") {
         return new Response(
           JSON.stringify({
             id: "chunk_mitosis",

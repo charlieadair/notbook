@@ -2,7 +2,7 @@
 set -euo pipefail
 
 BASE="${1:-http://127.0.0.1:3000}"
-API="$BASE"
+API="$BASE/api/v1"
 
 echo "== health"
 curl -sS "$API/health"
