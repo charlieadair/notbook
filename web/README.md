@@ -24,22 +24,19 @@ npm run build
 
 ## Point at the local Study API
 
-Set `VITE_API_BASE_URL` to the API prefix the servers actually serve.
+**Web binds `:3000`.** **API is `:8000`.** Default:
 
-| Setup | Example |
-| --- | --- |
-| Backend with `/api/v1` (default) | `VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1` |
-| Study-logic HTTP wrapper alone (PR #1, no prefix) | `VITE_API_BASE_URL=http://127.0.0.1:3000` |
-| Same-origin via Vite proxy (avoids CORS) | `VITE_API_BASE_URL=/api/v1` and `VITE_API_PROXY_TARGET=http://127.0.0.1:8000` |
+`VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1`
 
-The client always appends paths such as `/notebooks`, `/health`, `/chunks/:id`. Include `/api/v1` in the base URL when Backend mounts there.
+Study-logic routes (topics, quizzes, attempts, scoreboard) are expected on that **same `/api/v1` base**, mounted behind Backend (or proxied to it). Do **not** point the web app at Study-logic’s standalone Node listener (PR #1 historically used `:3000`) — that port is reserved for this UI.
 
-Routes match main’s OpenAPI (`backend/docs/openapi.json`) plus Study-logic mounted at `/api/v1` on Backend `:8000`.
+Same-origin proxy (avoids CORS): `VITE_API_BASE_URL=/api/v1` and `VITE_API_PROXY_TARGET=http://127.0.0.1:8000`.
 
-1. Start Backend (vault + ingest) on the host/port it documents — expected default `http://127.0.0.1:8000`.
-2. Start Study-logic if it is a separate process, or use the combined Study API if Backend fronts those routes.
-3. `cd web && npm run dev`
-4. Open `http://127.0.0.1:3000` — no login.
+1. Start Backend on `:8000` (vault + Study-logic under `/api/v1`).
+2. `cd web && npm run dev` — listens on `http://127.0.0.1:3000` (`strictPort`).
+3. Open that URL — no login.
+
+Health: `GET {VITE_API_BASE_URL}/health`.
 
 Health: the home screen calls `GET {VITE_API_BASE_URL}/health`.
 
@@ -69,8 +66,8 @@ This mock is **not** real OCR, retrieval, or grounded generation. Filenames cont
 - OCR / extract failed on a source (status + re-upload guidance)
 - No chunks yet / vault empty
 - Topics not confirmed (pretest CTA blocked)
-- `409 TopicsUnconfirmed` on pretest → confirm topics
-- `422 InsufficientEvidence` → need more materials / weak vault
+- `409 { error: "topics_unconfirmed" }` on pretest → confirm topics
+- `422 { error: "insufficient_evidence" }` → need more materials / weak vault
 
 ## Client contract
 

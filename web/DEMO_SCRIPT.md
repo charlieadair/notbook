@@ -15,10 +15,11 @@ uvicorn app.main:app --reload --port 8000
 cd web
 npm install
 # default: VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1
+# Study-logic is on that same /api/v1 prefix (not its standalone :3000).
 npm run dev
 ```
 
-Open `http://127.0.0.1:3000`. No account. If the home screen says the API is unreachable, start Backend — do not use `VITE_USE_MOCK=1` for the judge path.
+Open `http://127.0.0.1:3000`. No account. If the home screen says the API is unreachable, start Backend on `:8000` — do not point Web at Study-logic’s standalone `:3000`, and do not use `VITE_USE_MOCK=1` for the judge path.
 
 ## Click path (~60s)
 

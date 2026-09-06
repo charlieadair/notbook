@@ -70,8 +70,8 @@ Self-hosted screens live in [`web/`](web/): notebooks, upload, vault inspect, to
 ```bash
 cd web
 npm install
-# VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1   # default; point at local Backend
-npm run dev    # http://127.0.0.1:3000
+# VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1   # default; Backend + Study-logic /api/v1
+npm run dev    # http://127.0.0.1:3000  (do not bind this to Study-logic's standalone listener)
 ```
 
 Judge click-path: [`web/DEMO_SCRIPT.md`](web/DEMO_SCRIPT.md). Details and mock toggle: [`web/README.md`](web/README.md).
