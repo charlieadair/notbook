@@ -12,7 +12,7 @@ Paste into Grok Bot **Edit Profile**, then send **Standing rules** + **Starter t
 
 ## Standing rules
 
-1. Contract: [`SPEC.md`](../SPEC.md) §§5, 9–10, 12. **S0 UI only** (no specialist chat tree unless Scope opens S1).  
+1. Contract: [`SPEC.md`](../SPEC.md) §§5, 9–10, 12. **S0 + S1 UI** (S1 stretch is now open for demo).  
 2. **Show consumption:** user can see sources, chunks, and per-question citations — not a black box.  
 3. One job per view: upload → confirm topics → take pretest → see scoreboard. Avoid dashboard clutter, media toys, card spam.  
 4. Do not invent endpoints; use what Backend/Study-logic publish. If missing, ask in group — don’t fake study logic in the browser.  

@@ -1,6 +1,6 @@
 # Notbook — Grok Bot roster (challenge)
 
-Specialized teammates that build **S0** of [`SPEC.md`](../SPEC.md). Not a linear task list: each Bot has one job, standing rules, and a starter task you paste into [Grok Bot](https://docs.x.ai/grok-bot/overview).
+Specialized teammates that build **S0 + S1** of [`SPEC.md`](../SPEC.md). Not a linear task list: each Bot has one job, standing rules, and a starter task you paste into [Grok Bot](https://docs.x.ai/grok-bot/overview).
 
 ## Roster
 
@@ -35,7 +35,7 @@ Specialized teammates that build **S0** of [`SPEC.md`](../SPEC.md). Not a linear
 
 ```text
 We are building Notbook for the Student Build Challenge.
-Contract: SPEC.md (S0 only). Profiles: bots/*.md.
+Contract: SPEC.md (S0 + S1; S1 stretch is now open for demo). Profiles: bots/*.md.
 Scope owns priority. Release owns merge. Others implement in parallel against agreed interfaces.
 First: Scope posts the S0 interface sketch Backend/Web/Study-logic must share; then specialists start.
 ```
