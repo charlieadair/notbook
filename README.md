@@ -70,13 +70,13 @@ This project is being built with Grok Bot as part of the Student Build Challenge
 
 ## S0 study engine
 
-Challenge target for this repo is **S0 only** (topics, grounded pretest, scoreboard). Study logic lives in [`packages/study-logic`](packages/study-logic).
+Challenge target for this repo is **S0 only** (topics, grounded pretest, scoreboard). Study logic lives in [`packages/study-logic`](packages/study-logic) as a **library**. DEMO composition is Web UI **:3000** + Backend **:8000** (Backend mounts `/api/v1` study routes). This package does not bind :3000.
 
 ```bash
 npm install
 npm test
 npm run build
-npm start
+npm start          # offline fixture smoke on PORT (default 3001), not DEMO
 ```
 
-See the package README for routes, the `VaultRetrieve` contract, and the local smoke path. No UI, OCR, or embedding store in this slice.
+See the package README for the Backend import adapter, `VaultRetrieve` contract, and smoke path. No UI, OCR, or embedding store in this slice.
