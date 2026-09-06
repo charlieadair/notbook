@@ -55,3 +55,7 @@ The web interface allows you to take the quizzes and ask questions throughout.
 I want this to be an accessible tool and as such. I want to be able to run this using either local
 models (expecting 16 GB of GPU accelerated memory) or use it via an MCP using the inference provider
 that you already pay for.
+
+## Acknowledgement
+
+This project is being built with Grok Bot as part of the Student Build Challenge!
