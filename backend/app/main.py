@@ -6,6 +6,7 @@ from app.config import Settings
 from app.db import init_db, make_engine, make_session_factory
 from app.inference import build_inference
 from app.routers import health, ingest, inspect, notebooks, retrieve
+from app.vault import bind_retrieve, try_install_study_logic
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -35,12 +36,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.engine = engine
     app.state.SessionLocal = make_session_factory(engine)
     app.state.inference = inference
+    app.state.retrieve = bind_retrieve(app)
 
     app.include_router(health.router)
     app.include_router(notebooks.router)
     app.include_router(ingest.router)
     app.include_router(retrieve.router)
     app.include_router(inspect.router)
+    try_install_study_logic(app)
 
     @app.get("/", include_in_schema=False)
     def root() -> dict[str, str]:

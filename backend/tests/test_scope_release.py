@@ -68,9 +68,15 @@ def test_pdf_paste_image_listed_with_honest_status(client, notebook_id):
     assert image.json()["type"] == "image"
     # Tesseract may be missing: failed/empty is honest, not silent success.
     assert image.json()["extract_status"] in {"ok", "failed"}
+    image_chunks = client.get(f"/api/v1/sources/{image.json()['id']}/chunks")
+    assert image_chunks.status_code == 200
     if image.json()["extract_status"] == "failed":
         assert image.json()["chunk_count"] == 0
         assert image.json()["error"]
+        assert image_chunks.json() == []
+    else:
+        assert image.json()["chunk_count"] >= 1
+        assert image_chunks.json()
 
     listed = client.get(f"/api/v1/notebooks/{notebook_id}/sources")
     assert listed.status_code == 200
@@ -100,3 +106,17 @@ def test_pdf_paste_image_listed_with_honest_status(client, notebook_id):
     hits = retrieved.json()["chunks"]
     assert hits
     assert all(h["id"] and h["score"] > 0 for h in hits)
+
+
+def test_retrieve_callable_same_shape_as_http(client, app, notebook_id):
+    client.post(
+        f"/api/v1/notebooks/{notebook_id}/sources",
+        json={"text": "The spectral theorem diagonalizes a real symmetric matrix."},
+    )
+    hits = app.state.retrieve(notebook_id, "spectral theorem", 8)
+    assert hits
+    first = hits[0]
+    assert first.id and first.source_id and first.text
+    assert first.locator is not None
+    assert first.score > 0
+    assert first.source_filename

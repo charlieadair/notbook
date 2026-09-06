@@ -52,7 +52,15 @@ pytest
 
 ## Smoke (Release)
 
-Fixtures: [`fixtures/sample.pdf`](fixtures/sample.pdf), [`fixtures/handwritten_scan.png`](fixtures/handwritten_scan.png). Image OCR is `failed` unless Tesseract is installed — that is an honest `extract_status`, not silent success.
+Default base URL: **http://127.0.0.1:8000**. Fixtures: [`fixtures/sample.pdf`](fixtures/sample.pdf), [`fixtures/handwritten_scan.png`](fixtures/handwritten_scan.png). Image OCR is `failed` unless Tesseract is installed — that is an honest `extract_status`, not silent success.
+
+One command (server already running):
+
+```bash
+./scripts/smoke.sh
+```
+
+Or the same sequence by hand:
 
 ```bash
 BASE=http://127.0.0.1:8000

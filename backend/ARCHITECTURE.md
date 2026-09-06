@@ -64,7 +64,17 @@ Implementations:
 1. **`StubInference`** (default) — deterministic feature-hashed embeddings; `complete` returns a fixed JSON string so Study-logic can develop offline.
 2. **`OpenAICompatibleInference`** — HTTP client for `{OPENAI_API_BASE}/embeddings` and `/chat/completions`. Reads `OPENAI_API_BASE`, `OPENAI_API_KEY`, `OPENAI_EMBED_MODEL`, `OPENAI_CHAT_MODEL`. No vendor is hardcoded in policy/retrieve/ingest code.
 
-Activate the remote adapter with `INFERENCE_ADAPTER=openai-compatible` (or `auto` when base + key are set). `GET /inference` reports the active adapter and model names; it never returns secrets.
+Activate the remote adapter with `INFERENCE_PROVIDER=openai-compatible` (or `auto` when base + key are set). `GET /inference` reports the active adapter and model names; it never returns secrets.
+
+Study-logic mount (optional, does not block vault smoke): `app.state.retrieve` is `retrieve(notebook_id, query, top_k=8) -> list[RetrieveChunk]` with fields `id, source_id, text, locator, score, source_filename`. HTTP `POST .../retrieve` is a thin wrapper over that callable.
+
+```python
+# TODO when study_logic is on PYTHONPATH (PR #6):
+# from study_logic.api import install_study_logic
+# install_study_logic(app, retrieve=app.state.retrieve, prefix="/api/v1")
+```
+
+`try_install_study_logic(app)` in `app/main.py` no-ops if the package is missing.
 
 ## Inspectability
 
