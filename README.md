@@ -64,6 +64,19 @@ that you already pay for.
 - Judge / Release demo gate: [`DEMO.md`](DEMO.md) (self-hosted S0 smoke path)
 - Grok Bot roster (Scope, Study-logic, Backend, Web, Release): [`bots/README.md`](bots/README.md)
 
+## Web UI (S0)
+
+Self-hosted screens live in [`web/`](web/): notebooks, upload, vault inspect, topic confirm, pretest with citations, scoreboard.
+
+```bash
+cd web
+npm install
+# VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1   # default; Backend + Study-logic /api/v1
+npm run dev    # http://127.0.0.1:3000  (do not bind this to Study-logic's standalone listener)
+```
+
+Judge click-path: [`web/DEMO_SCRIPT.md`](web/DEMO_SCRIPT.md). Details and mock toggle: [`web/README.md`](web/README.md).
+
 ## Acknowledgement
 
 This project is being built with Grok Bot as part of the Student Build Challenge!
