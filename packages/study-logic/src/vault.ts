@@ -76,7 +76,7 @@ export class InMemoryVault implements VaultRetrieve {
 }
 
 function scoreChunk(chunk: Chunk, query: string, terms: string[]): number {
-  const hay = `${chunk.text} ${chunk.source_filename ?? ""} ${chunk.source_id} ${chunk.locator}`.toLowerCase();
+  const hay = `${chunk.text} ${chunk.source_filename} ${chunk.source_id} ${chunk.locator}`.toLowerCase();
   let score = 0;
   if (hay.includes(query)) score += 5;
   for (const term of terms) {

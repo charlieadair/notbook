@@ -50,25 +50,25 @@ Gates:
 
 ## VaultRetrieve contract (Backend)
 
-Study-logic **consumes** retrieval. Backend implements (do not reimplement the vault here):
+Study-logic **consumes** retrieval. Backend implements (do not reimplement the vault here). StubInference on Backend is enough to develop offline.
 
 ```
 POST /api/v1/notebooks/{notebook_id}/retrieve
-  body: { query: string, top_k?: number }
-  → { chunks: [{ id, source_id, text, locator, score, source_filename? }] }
+  body: { query: string, top_k?: number }   # default top_k = 8
+  → { chunks: [{ id, source_id, text, locator, score, source_filename }] }
 
 GET  /api/v1/chunks/{chunk_id}
-  → Chunk
+  → full chunk + source metadata (same fields)
 ```
 
 ```ts
 type Chunk = {
-  id: string            // citation_chunk_id
+  id: string              // citation_chunk_id
   source_id: string
   text: string
   locator: string
   score: number
-  source_filename?: string  // source label
+  source_filename: string // source label
 }
 
 interface VaultRetrieve {
@@ -76,8 +76,8 @@ interface VaultRetrieve {
 }
 ```
 
-- `HttpVaultRetrieve` calls those Backend routes and reads `{ chunks }`. `chunk.id` is the citation id on quiz items.
-- `InMemoryVault` / `createFixtureVault()` are for tests and local smoke only (`notebook_id = nb_bio`). Fixture retrieve returns the same `{ chunks }` shape.
+- `HttpVaultRetrieve` calls those Backend routes and reads `{ chunks }`. `chunk.id` is written to `QuizItem.citation_chunk_ids`.
+- `InMemoryVault` / `createFixtureVault()` are the offline fixture (`notebook_id = nb_bio`). They use the same field names and `{ chunks }` envelope. `getChunk(id)` is the fixture stand-in for `GET /api/v1/chunks/{chunk_id}`.
 
 A chunk is citable only when `id` and `text` are non-empty. Quiz items must have a non-empty `citation_chunk_ids` list pointing at **retrieved** `chunk.id` values. Uncited items are dropped; if nothing remains, the engine returns `InsufficientEvidence`.
 

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_TOP_K } from "../src/types.js";
 import { createFixtureVault, fixtureChunks, HttpVaultRetrieve, InMemoryVault } from "../src/vault.js";
 
-const REQUIRED_FIELDS = ["id", "source_id", "text", "locator", "score"] as const;
+const REQUIRED_FIELDS = ["id", "source_id", "text", "locator", "score", "source_filename"] as const;
 
 describe("VaultRetrieve contract", () => {
   it("fixture retrieve returns Backend Chunk shape inside { chunks }", async () => {
@@ -84,6 +84,20 @@ describe("VaultRetrieve contract", () => {
     expect(chunks[0].id).toBe("chunk_mitosis");
     const one = await adapter.getChunk("chunk_mitosis");
     expect(one?.id).toBe("chunk_mitosis");
+    expect(one?.source_filename).toBe("notes-cell-cycle.md");
+    expect(one?.locator).toBe("notes-cell-cycle.md#mitosis");
     vi.unstubAllGlobals();
+  });
+
+  it("fixture getChunk returns full chunk + source metadata", () => {
+    const vault = createFixtureVault();
+    const chunk = vault.getChunk("chunk_mitosis");
+    expect(chunk).toMatchObject({
+      id: "chunk_mitosis",
+      source_id: "notes-cell-cycle",
+      locator: "notes-cell-cycle.md#mitosis",
+      source_filename: "notes-cell-cycle.md",
+    });
+    expect(chunk?.text).toContain("Mitosis");
   });
 });

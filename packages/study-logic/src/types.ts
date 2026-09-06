@@ -66,14 +66,14 @@ export const PROFICIENCY_BAR = 0.8;
 export const SEVERE_RATE = 0.5;
 export const SEVERE_MISS_COUNT = 3;
 
-/** Backend retrieve hit. `id` is the citation_chunk_id. */
+/** Backend retrieve hit. `id` is the citation_chunk_id; `source_filename` is the source label. */
 export type Chunk = {
   id: string;
   source_id: string;
   text: string;
   locator: string;
   score: number;
-  source_filename?: string;
+  source_filename: string;
 };
 
 export type RetrieveResponse = {
