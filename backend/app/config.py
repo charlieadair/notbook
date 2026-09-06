@@ -16,14 +16,25 @@ class Settings(BaseSettings):
 
     data_dir: Path = Field(
         default=Path("data"),
-        validation_alias=AliasChoices("NOTBOOK_DATA_DIR", "data_dir"),
+        validation_alias=AliasChoices("DATA_DIR", "NOTBOOK_DATA_DIR", "data_dir"),
     )
     # stub | openai-compatible | auto
-    inference_adapter: str = Field(default="stub", validation_alias="INFERENCE_ADAPTER")
+    inference_adapter: str = Field(
+        default="stub",
+        validation_alias=AliasChoices(
+            "INFERENCE_PROVIDER", "INFERENCE_ADAPTER", "inference_adapter"
+        ),
+    )
     openai_api_base: str | None = None
     openai_api_key: str | None = None
-    openai_embed_model: str = "text-embedding-3-small"
-    openai_chat_model: str = "gpt-4o-mini"
+    openai_embed_model: str = Field(
+        default="text-embedding-3-small",
+        validation_alias=AliasChoices("EMBED_MODEL", "OPENAI_EMBED_MODEL", "openai_embed_model"),
+    )
+    openai_chat_model: str = Field(
+        default="gpt-4o-mini",
+        validation_alias=AliasChoices("CHAT_MODEL", "OPENAI_CHAT_MODEL", "openai_chat_model"),
+    )
 
     @property
     def db_path(self) -> Path:

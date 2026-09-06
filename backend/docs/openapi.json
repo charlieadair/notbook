@@ -196,13 +196,119 @@
         }
       }
     },
+    "/api/v1/notebooks/{notebook_id}/sources": {
+      "post": {
+        "tags": [
+          "ingest"
+        ],
+        "summary": "Ingest a source (multipart upload or JSON paste)",
+        "description": "Content-Type discriminates: JSON paste `{filename?, text}` vs multipart `file`.",
+        "operationId": "create_source_api_v1_notebooks__notebook_id__sources_post",
+        "parameters": [
+          {
+            "name": "notebook_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Notebook Id"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "paste | upload \u2014 optional hint",
+              "title": "Kind"
+            },
+            "description": "paste | upload \u2014 optional hint"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "inspect"
+        ],
+        "summary": "List Sources",
+        "operationId": "list_sources_api_v1_notebooks__notebook_id__sources_get",
+        "parameters": [
+          {
+            "name": "notebook_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Notebook Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SourceOut"
+                  },
+                  "title": "Response List Sources Api V1 Notebooks  Notebook Id  Sources Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/notebooks/{notebook_id}/sources/upload": {
       "post": {
         "tags": [
           "ingest"
         ],
-        "summary": "Upload Source",
+        "summary": "Alias of POST /sources (multipart)",
         "operationId": "upload_source_api_v1_notebooks__notebook_id__sources_upload_post",
+        "deprecated": true,
         "parameters": [
           {
             "name": "notebook_id",
@@ -253,8 +359,9 @@
         "tags": [
           "ingest"
         ],
-        "summary": "Paste Source",
+        "summary": "Alias of POST /sources (JSON paste)",
         "operationId": "paste_source_api_v1_notebooks__notebook_id__sources_paste_post",
+        "deprecated": true,
         "parameters": [
           {
             "name": "notebook_id",
@@ -352,21 +459,21 @@
         }
       }
     },
-    "/api/v1/notebooks/{notebook_id}/sources": {
+    "/api/v1/sources/{source_id}/chunks": {
       "get": {
         "tags": [
           "inspect"
         ],
-        "summary": "List Sources",
-        "operationId": "list_sources_api_v1_notebooks__notebook_id__sources_get",
+        "summary": "List Source Chunks",
+        "operationId": "list_source_chunks_api_v1_sources__source_id__chunks_get",
         "parameters": [
           {
-            "name": "notebook_id",
+            "name": "source_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Notebook Id"
+              "title": "Source Id"
             }
           }
         ],
@@ -378,9 +485,9 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/SourceOut"
+                    "$ref": "#/components/schemas/ChunkPreview"
                   },
-                  "title": "Response List Sources Api V1 Notebooks  Notebook Id  Sources Get"
+                  "title": "Response List Source Chunks Api V1 Sources  Source Id  Chunks Get"
                 }
               }
             }
@@ -403,8 +510,9 @@
         "tags": [
           "inspect"
         ],
-        "summary": "List Source Chunks",
-        "operationId": "list_source_chunks_api_v1_notebooks__notebook_id__sources__source_id__chunks_get",
+        "summary": "Alias of GET /api/v1/sources/{source_id}/chunks",
+        "operationId": "list_source_chunks_nested_api_v1_notebooks__notebook_id__sources__source_id__chunks_get",
+        "deprecated": true,
         "parameters": [
           {
             "name": "source_id",
@@ -435,7 +543,7 @@
                   "items": {
                     "$ref": "#/components/schemas/ChunkPreview"
                   },
-                  "title": "Response List Source Chunks Api V1 Notebooks  Notebook Id  Sources  Source Id  Chunks Get"
+                  "title": "Response List Source Chunks Nested Api V1 Notebooks  Notebook Id  Sources  Source Id  Chunks Get"
                 }
               }
             }
@@ -762,8 +870,8 @@
         "properties": {
           "query": {
             "type": "string",
-            "minLength": 1,
-            "title": "Query"
+            "title": "Query",
+            "default": ""
           },
           "top_k": {
             "type": "integer",
@@ -774,9 +882,6 @@
           }
         },
         "type": "object",
-        "required": [
-          "query"
-        ],
         "title": "RetrieveIn"
       },
       "RetrieveOut": {

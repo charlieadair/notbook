@@ -33,21 +33,8 @@ def list_sources(
     return [_source_out(db, s) for s in sources]
 
 
-@router.get(
-    "/notebooks/{notebook_id}/sources/{source_id}/chunks",
-    response_model=list[ChunkPreview],
-)
-def list_source_chunks(
-    source_id: str,
-    notebook: Notebook = Depends(get_notebook),
-    db: Session = Depends(get_db),
-) -> list[ChunkPreview]:
-    source = db.get(Source, source_id)
-    if source is None or source.notebook_id != notebook.id:
-        raise HTTPException(status_code=404, detail="Source not found")
-    chunks = list(
-        db.scalars(select(Chunk).where(Chunk.source_id == source_id)).all()
-    )
+def _chunk_previews(db: Session, source_id: str) -> list[ChunkPreview]:
+    chunks = list(db.scalars(select(Chunk).where(Chunk.source_id == source_id)).all())
     chunks.sort(key=lambda c: (c.locator or {}).get("order") or 0)
     return [
         ChunkPreview(
@@ -59,6 +46,31 @@ def list_source_chunks(
         )
         for c in chunks
     ]
+
+
+@router.get("/sources/{source_id}/chunks", response_model=list[ChunkPreview])
+def list_source_chunks(source_id: str, db: Session = Depends(get_db)) -> list[ChunkPreview]:
+    source = db.get(Source, source_id)
+    if source is None:
+        raise HTTPException(status_code=404, detail="Source not found")
+    return _chunk_previews(db, source_id)
+
+
+@router.get(
+    "/notebooks/{notebook_id}/sources/{source_id}/chunks",
+    response_model=list[ChunkPreview],
+    deprecated=True,
+    summary="Alias of GET /api/v1/sources/{source_id}/chunks",
+)
+def list_source_chunks_nested(
+    source_id: str,
+    notebook: Notebook = Depends(get_notebook),
+    db: Session = Depends(get_db),
+) -> list[ChunkPreview]:
+    source = db.get(Source, source_id)
+    if source is None or source.notebook_id != notebook.id:
+        raise HTTPException(status_code=404, detail="Source not found")
+    return _chunk_previews(db, source_id)
 
 
 @router.get("/chunks/{chunk_id}", response_model=ChunkDetail)

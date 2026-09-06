@@ -5,7 +5,7 @@ from tests.helpers import build_simple_pdf
 
 def test_retrieve_returns_stable_chunk_ids(client, notebook_id):
     client.post(
-        f"/api/v1/notebooks/{notebook_id}/sources/paste",
+        f"/api/v1/notebooks/{notebook_id}/sources",
         json={
             "text": (
                 "LU factorization writes A = LU with L lower triangular "
@@ -39,9 +39,7 @@ def test_pdf_ingest_then_retrieve(client, notebook_id):
     assert upload.json()["extract_status"] == "ok"
     assert upload.json()["chunk_count"] >= 1
 
-    chunks = client.get(
-        f"/api/v1/notebooks/{notebook_id}/sources/{upload.json()['id']}/chunks"
-    )
+    chunks = client.get(f"/api/v1/sources/{upload.json()['id']}/chunks")
     assert chunks.status_code == 200
     assert chunks.json()[0]["locator"].get("page") == 1
 

@@ -12,7 +12,7 @@ def test_paste_ingest_source_ok_chunks_and_get_by_id(client, notebook_id):
         "|<u,v>| <= ||u|| ||v|| in any inner product space."
     )
     created = client.post(
-        f"/api/v1/notebooks/{notebook_id}/sources/paste",
+        f"/api/v1/notebooks/{notebook_id}/sources",
         json={"filename": "review.txt", "text": pasted},
     )
     assert created.status_code == 201, created.text
@@ -29,9 +29,7 @@ def test_paste_ingest_source_ok_chunks_and_get_by_id(client, notebook_id):
     assert rows[0]["extract_status"] == "ok"
     assert rows[0]["chunk_count"] >= 1
 
-    chunks = client.get(
-        f"/api/v1/notebooks/{notebook_id}/sources/{source['id']}/chunks"
-    )
+    chunks = client.get(f"/api/v1/sources/{source['id']}/chunks")
     assert chunks.status_code == 200
     items = chunks.json()
     assert len(items) >= 1
@@ -55,7 +53,7 @@ def test_markdown_upload_searchable_via_retrieve(client, notebook_id):
         "Eigenvalue decomposition is the computational form of that fact.\n"
     )
     upload = client.post(
-        f"/api/v1/notebooks/{notebook_id}/sources/upload",
+        f"/api/v1/notebooks/{notebook_id}/sources",
         files={"file": ("spectral.md", markdown.encode("utf-8"), "text/markdown")},
     )
     assert upload.status_code == 201, upload.text
@@ -100,9 +98,7 @@ def test_image_ingest_mocked_ocr_creates_chunks(client, notebook_id, monkeypatch
     assert body["extract_status"] == "ok"
     assert body["chunk_count"] >= 1
 
-    chunks = client.get(
-        f"/api/v1/notebooks/{notebook_id}/sources/{body['id']}/chunks"
-    )
+    chunks = client.get(f"/api/v1/sources/{body['id']}/chunks")
     assert chunks.status_code == 200
     assert "Gram-Schmidt" in chunks.json()[0]["text"]
     assert chunks.json()[0]["locator"].get("region") == "full"

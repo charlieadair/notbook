@@ -18,6 +18,8 @@ def retrieve_chunks(
     db: Session = Depends(get_db),
     inference: InferenceAdapter = Depends(get_inference),
 ) -> RetrieveOut:
+    if not body.query.strip():
+        return RetrieveOut(chunks=[])
     hits = retrieve(
         db,
         inference=inference,

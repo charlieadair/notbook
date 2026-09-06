@@ -70,8 +70,9 @@ Activate the remote adapter with `INFERENCE_ADAPTER=openai-compatible` (or `auto
 
 “Upload OK” is not sufficient. Clients can:
 
+- `POST /api/v1/notebooks/{id}/sources` — multipart file **or** JSON paste `{filename?, text}` (content-type / `?kind=paste`)
 - `GET /api/v1/notebooks/{id}/sources` — extract status + chunk_count
-- `GET /api/v1/notebooks/{id}/sources/{source_id}/chunks` — locators + text
+- `GET /api/v1/sources/{source_id}/chunks` — locators + text (vault browser)
 - `GET /api/v1/chunks/{chunk_id}` — full chunk + source metadata
 
 ## OpenAPI
