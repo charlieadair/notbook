@@ -1,8 +1,8 @@
 # `study-logic` (Python / FastAPI)
 
-S0 study engine mount for DEMO: **one FastAPI process on :8000**. Backend includes this router. There is no second Node server and no proxy.
+S0 + S1 study engine mount for DEMO: **one FastAPI process on :8000**. Backend includes this router (`install_study_logic` / `create_router`). There is no second Node server and no proxy.
 
-The TypeScript package in `packages/study-logic` remains as reference/tests. **DEMO must use this FastAPI router.**
+The TypeScript package in `packages/study-logic` remains as reference/tests. **DEMO must use this FastAPI router.** S2 (miss→explain→retest) is out.
 
 ## Install
 
@@ -63,6 +63,8 @@ app.include_router(
 
 ## Routes (after `prefix="/api/v1"`)
 
+S0 spine:
+
 | Method | Path |
 | --- | --- |
 | `POST` | `/api/v1/notebooks/{id}/topics/propose` |
@@ -72,11 +74,75 @@ app.include_router(
 | `POST` | `/api/v1/quizzes/{id}/attempts` |
 | `GET` | `/api/v1/notebooks/{id}/scoreboard` |
 
+S1 chat tree (same router / same process):
+
+| Method | Path |
+| --- | --- |
+| `GET` `POST` | `/api/v1/notebooks/{id}/chats/orchestrator` — idempotent get-or-create |
+| `GET` | `/api/v1/notebooks/{id}/chats` |
+| `GET` | `/api/v1/notebooks/{id}/spawn-offer` |
+| `POST` | `/api/v1/notebooks/{id}/chats/specialists` — `{ "topic_ids": string[] }` |
+| `POST` | `/api/v1/chats/{id}/messages` — `{ "role"?, "text"?, "generate_quiz"? }` |
+| `POST` | `/api/v1/chats/{id}/close` — specialist → orchestrator handoff |
+| `GET` | `/api/v1/notebooks/{id}/handoffs` |
+
 - **409 `TopicsUnconfirmed`** until the topic map is confirmed.
 - **422 `InsufficientEvidence`** if retrieve returns no citable chunks — never invent items.
+- **409 `TooManySpecialists`** if a third open specialist would be created (`max_spawn` = **2**).
+- **409 `ChatClosed`** if posting to a closed chat.
 - Explicit `{ "names": [...] }` on confirm writes already-confirmed topics (skip propose).
-- Every quiz item has `citation_chunk_ids` = retrieved `chunk.id`.
-- Scoreboard: last **20** attempts / topic, proficiency **0.8**.
+- Every quiz item has `citation_chunk_ids` = retrieved `chunk.id` (including `generate_quiz` on a chat).
+- Scoreboard: last **20** attempts / topic, proficiency **0.8**. Shared by orchestrator and specialists — grade via `POST /quizzes/{id}/attempts`.
+- Spawn offer is **after pretest scores / attempts only** (empty `candidates` if none — never invented from the topic map), **severe-first**, **≤ 2** candidates. Mild gaps stay on the scoreboard (not hidden). Topics not in the offer may still be opened (soft `warnings[]`).
+- Orchestrator is **get-or-create** on notebook open (`GET`/`POST …/chats/orchestrator`, and `GET …/chats`). Spawn is an offer; specialists are never auto-opened.
+- `Chat` / `Handoff` live in the study-logic memory store (same process as S0). No Backend SQLite tables for S1.
+- Close writes an auto **Handoff** into the orchestrator with a progress summary + `scoreboard_snapshot`. Summary is scoreboard/progress only (no unsourced teaching claims).
+
+Optional `{ "topic_ids": [...] }` on `POST /quizzes` scopes generation; omit it for the S0 whole-notebook pretest.
+
+## S1 shapes (Web)
+
+```ts
+type Chat = {
+  id: string
+  notebook_id: string
+  kind: "orchestrator" | "specialist"
+  topic_ids: string[]      // empty/broad for orchestrator; 1+ for specialist
+  status: "open" | "closed"
+  created_at: string
+  closed_at: string | null
+}
+
+type SpawnOffer = {
+  notebook_id: string
+  candidates: { topic_id: string; severity: "mild" | "severe"; reason: string }[]
+  max_spawn: 2
+}
+
+type Handoff = {
+  id: string
+  from_chat_id: string
+  to_chat_id: string       // orchestrator
+  topic_ids: string[]
+  summary: string
+  scoreboard_snapshot: TopicScore[]
+  created_at: string
+}
+
+type ChatMessage = {
+  id: string
+  chat_id: string
+  role: "user" | "assistant"
+  text: string
+  created_at: string
+}
+```
+
+Response wrappers:
+
+- `POST …/chats/specialists` → `{ chat: Chat, warnings: string[] }`
+- `POST …/chats/{id}/messages` → `{ message: ChatMessage, quiz?: { quiz, items } }`
+- `POST …/chats/{id}/close` → `{ chat: Chat, handoff: Handoff }`
 
 ## Tests
 
@@ -85,3 +151,33 @@ cd packages/study_logic
 pip install -e '.[dev]'
 pytest
 ```
+
+S0 gates (still required): confirm, citations, empty vault. S1: offer cap / severe-first, specialist cap, shared scoreboard from specialist attempts, handoff on close.
+
+## Release smoke (S1, same `:8000`)
+
+After S0 confirm → pretest → attempts, on the **same** Backend process:
+
+```bash
+# orchestrator get-or-create
+curl -fsS -X POST http://127.0.0.1:8000/api/v1/notebooks/$NOTEBOOK_ID/chats/orchestrator
+
+# offer ≤2, severe-first; mild topics remain on GET …/scoreboard
+curl -fsS http://127.0.0.1:8000/api/v1/notebooks/$NOTEBOOK_ID/spawn-offer
+
+# open ≤2 specialists; a third is 409 TooManySpecialists
+curl -fsS -X POST http://127.0.0.1:8000/api/v1/notebooks/$NOTEBOOK_ID/chats/specialists \
+  -H 'Content-Type: application/json' -d '{"topic_ids":["<severe-topic-id>"]}'
+
+# specialist quiz still requires citation_chunk_ids; grade via existing attempts path
+curl -fsS -X POST http://127.0.0.1:8000/api/v1/chats/$CHAT_ID/messages \
+  -H 'Content-Type: application/json' -d '{"generate_quiz":true}'
+curl -fsS -X POST http://127.0.0.1:8000/api/v1/quizzes/$QUIZ_ID/attempts \
+  -H 'Content-Type: application/json' -d '{"item_id":"...","selected_choice_id":"..."}'
+
+# close writes a handoff visible on GET handoffs
+curl -fsS -X POST http://127.0.0.1:8000/api/v1/chats/$CHAT_ID/close
+curl -fsS http://127.0.0.1:8000/api/v1/notebooks/$NOTEBOOK_ID/handoffs
+```
+
+Do not require S2 miss→explain→retest. S0 spine (topics, grounded quiz, scoreboard, `install_study_logic`) must stay green.

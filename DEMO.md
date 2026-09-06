@@ -444,6 +444,6 @@ These are S4 / later. A PR that makes any of them **required** for the judge pat
 - Multi-user auth
 - Privacy Policy / ToS for strangers
 - Public k8s / Cloudflare ingress (a **local** GHCR image for `docker compose` / `docker run` is in-scope; hosted SaaS is not)
-- S1 chat tree (orchestrator + specialists) unless Scope opens stretch
+- S2 miss→explain→retest polish (S1 chat-tree API is open on the same `:8000` `/api/v1` router; Web UI for chats is separate)
 
 Notbook S0 is a local study harness, not a hosted product.

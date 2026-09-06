@@ -60,6 +60,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     #   POST /api/v1/notebooks/{id}/quizzes
     #   POST /api/v1/quizzes/{id}/attempts
     #   GET  /api/v1/notebooks/{id}/scoreboard
+    #   GET|POST /api/v1/notebooks/{id}/chats/orchestrator
+    #   GET  /api/v1/notebooks/{id}/chats
+    #   GET  /api/v1/notebooks/{id}/spawn-offer
+    #   POST /api/v1/notebooks/{id}/chats/specialists
+    #   POST /api/v1/chats/{id}/messages
+    #   POST /api/v1/chats/{id}/close
+    #   GET  /api/v1/notebooks/{id}/handoffs
 
     return app
 
