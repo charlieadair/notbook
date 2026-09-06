@@ -82,7 +82,7 @@ S1 chat tree (same router / same process):
 | `GET` | `/api/v1/notebooks/{id}/chats` |
 | `GET` | `/api/v1/notebooks/{id}/spawn-offer` |
 | `POST` | `/api/v1/notebooks/{id}/chats/specialists` — `{ "topic_ids": string[] }` |
-| `POST` | `/api/v1/chats/{id}/messages` — `{ "role"?, "text"?, "generate_quiz"? }` |
+| `POST` | `/api/v1/chats/{id}/messages` — `{ "role"?, "text"?, "content"?, "generate_quiz"? }` |
 | `POST` | `/api/v1/chats/{id}/close` — specialist → orchestrator handoff |
 | `GET` | `/api/v1/notebooks/{id}/handoffs` |
 
@@ -90,6 +90,7 @@ S1 chat tree (same router / same process):
 - **422 `InsufficientEvidence`** if retrieve returns no citable chunks — never invent items.
 - **409 `TooManySpecialists`** if a third open specialist would be created (`max_spawn` = **2**).
 - **409 `ChatClosed`** if posting to a closed chat.
+- `POST …/messages`: **`text` is canonical**; **`content` is accepted as a Web-compat alias**. If both are present, `text` wins. If neither is present (and `generate_quiz` is not true), the route returns **422**.
 - Explicit `{ "names": [...] }` on confirm writes already-confirmed topics (skip propose).
 - Every quiz item has `citation_chunk_ids` = retrieved `chunk.id` (including `generate_quiz` on a chat).
 - Scoreboard: last **20** attempts / topic, proficiency **0.8**. Shared by orchestrator and specialists — grade via `POST /quizzes/{id}/attempts`.

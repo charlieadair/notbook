@@ -227,6 +227,42 @@ def test_close_writes_handoff_visible_on_get(client: TestClient) -> None:
     assert replay.json()["handoff"]["id"] == handoff["id"]
 
 
+def test_post_message_accepts_text_or_content_alias(client: TestClient) -> None:
+    topics = _confirm(client)
+    spawned = client.post(
+        "/api/v1/notebooks/nb_bio/chats/specialists",
+        json={"topic_ids": [topics[0]["id"]]},
+    )
+    assert spawned.status_code == 200, spawned.text
+    chat_id = spawned.json()["chat"]["id"]
+
+    via_content = client.post(
+        f"/api/v1/chats/{chat_id}/messages",
+        json={"role": "user", "content": "hi"},
+    )
+    assert via_content.status_code == 200, via_content.text
+    assert via_content.json()["message"]["text"] == "hi"
+
+    via_text = client.post(
+        f"/api/v1/chats/{chat_id}/messages",
+        json={"role": "user", "text": "hi"},
+    )
+    assert via_text.status_code == 200, via_text.text
+    assert via_text.json()["message"]["text"] == "hi"
+
+    prefers_text = client.post(
+        f"/api/v1/chats/{chat_id}/messages",
+        json={"role": "user", "text": "from-text", "content": "from-content"},
+    )
+    assert prefers_text.status_code == 200, prefers_text.text
+    assert prefers_text.json()["message"]["text"] == "from-text"
+
+    missing = client.post(f"/api/v1/chats/{chat_id}/messages", json={"role": "user"})
+    assert missing.status_code == 422
+    detail = missing.json()
+    assert "text" in str(detail).lower() and "content" in str(detail).lower()
+
+
 def test_empty_vault_generate_quiz_from_chat_still_422(empty_client: TestClient) -> None:
     confirmed = empty_client.post(
         "/api/v1/notebooks/nb_empty/topics/confirm",
