@@ -12,6 +12,7 @@ from app.config import Settings
 from app.db import fts_index_chunk
 from app.inference.base import InferenceAdapter
 from app.models import Chunk, Source
+from app.services.bounded import BoundedTimeoutError, run_with_timeout
 from app.services.chunking import chunk_text
 from app.services.embeddings import pack_embedding
 from app.services.ocr import ocr_image
@@ -58,11 +59,22 @@ def _write_file(settings: Settings, notebook_id: str, source_id: str, filename: 
     return f"files/{notebook_id}/{dest.name}"
 
 
-def _embed_chunks(inference: InferenceAdapter, pieces: list[str]) -> list[bytes | None]:
+def _embed_chunks(
+    inference: InferenceAdapter,
+    pieces: list[str],
+    *,
+    timeout: float,
+) -> list[bytes | None]:
     if not pieces:
         return []
     try:
-        vectors = inference.embed(pieces)
+        vectors = run_with_timeout(inference.embed, pieces, timeout=timeout)
+    except BoundedTimeoutError:
+        logger.warning(
+            "Embedding timed out after %.1fs; storing chunks without vectors (FTS fallback)",
+            timeout,
+        )
+        return [None] * len(pieces)
     except Exception:
         logger.exception("Embedding failed; storing chunks without vectors (FTS fallback)")
         return [None] * len(pieces)
@@ -79,8 +91,9 @@ def _persist_chunks(
     source_id: str,
     pieces: list[tuple[str, dict]],
     inference: InferenceAdapter,
+    embed_timeout: float,
 ) -> int:
-    blobs = _embed_chunks(inference, [p[0] for p in pieces])
+    blobs = _embed_chunks(inference, [p[0] for p in pieces], timeout=embed_timeout)
     for (text, locator), blob in zip(pieces, blobs, strict=True):
         chunk = Chunk(
             id=str(uuid.uuid4()),
@@ -96,9 +109,25 @@ def _persist_chunks(
     return len(pieces)
 
 
-def _extract_pieces(source_type: str, abs_path: Path) -> list[tuple[str, dict]]:
+def _extract_pdf_pages(abs_path: Path, settings: Settings) -> list[tuple[int, str]]:
+    try:
+        return run_with_timeout(
+            extract_pdf_pages,
+            abs_path,
+            timeout=settings.pdf_extract_timeout_seconds,
+            max_pages=settings.pdf_max_pages,
+            max_chars=settings.pdf_max_chars,
+        )
+    except BoundedTimeoutError as exc:
+        raise ValueError(
+            f"PDF extract timed out after {settings.pdf_extract_timeout_seconds:g}s "
+            "(malformed or overly complex PDF)"
+        ) from exc
+
+
+def _extract_pieces(source_type: str, abs_path: Path, settings: Settings) -> list[tuple[str, dict]]:
     if source_type == "pdf":
-        pages = extract_pdf_pages(abs_path)
+        pages = _extract_pdf_pages(abs_path, settings)
         pieces: list[tuple[str, dict]] = []
         order = 0
         for page_no, page_text in pages:
@@ -153,13 +182,14 @@ def ingest_bytes(
     db.flush()
 
     try:
-        pieces = _extract_pieces(source_type, abs_path)
+        pieces = _extract_pieces(source_type, abs_path, settings)
         _persist_chunks(
             db,
             notebook_id=notebook_id,
             source_id=source_id,
             pieces=pieces,
             inference=inference,
+            embed_timeout=settings.embed_timeout_seconds,
         )
         source.extract_status = "ok"
         source.error = None

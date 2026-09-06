@@ -16,6 +16,8 @@ def build_inference(settings: Settings) -> InferenceAdapter:
             api_key=settings.openai_api_key,
             embed_model=settings.openai_embed_model,
             chat_model=settings.openai_chat_model,
+            connect_timeout=settings.inference_connect_timeout_seconds,
+            read_timeout=settings.inference_read_timeout_seconds,
         )
     return StubInference()
 

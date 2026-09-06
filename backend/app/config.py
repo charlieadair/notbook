@@ -35,6 +35,35 @@ class Settings(BaseSettings):
         default="gpt-4o-mini",
         validation_alias=AliasChoices("CHAT_MODEL", "OPENAI_CHAT_MODEL", "openai_chat_model"),
     )
+    # Hard bounds so ingest cannot hang the upload request (see #35).
+    pdf_extract_timeout_seconds: float = Field(
+        default=30.0,
+        validation_alias=AliasChoices("PDF_EXTRACT_TIMEOUT_SECONDS", "pdf_extract_timeout_seconds"),
+    )
+    pdf_max_pages: int = Field(
+        default=200,
+        validation_alias=AliasChoices("PDF_MAX_PAGES", "pdf_max_pages"),
+    )
+    pdf_max_chars: int = Field(
+        default=500_000,
+        validation_alias=AliasChoices("PDF_MAX_CHARS", "pdf_max_chars"),
+    )
+    inference_connect_timeout_seconds: float = Field(
+        default=10.0,
+        validation_alias=AliasChoices(
+            "INFERENCE_CONNECT_TIMEOUT_SECONDS", "inference_connect_timeout_seconds"
+        ),
+    )
+    inference_read_timeout_seconds: float = Field(
+        default=30.0,
+        validation_alias=AliasChoices(
+            "INFERENCE_READ_TIMEOUT_SECONDS", "inference_read_timeout_seconds"
+        ),
+    )
+    embed_timeout_seconds: float = Field(
+        default=30.0,
+        validation_alias=AliasChoices("EMBED_TIMEOUT_SECONDS", "embed_timeout_seconds"),
+    )
 
     @property
     def db_path(self) -> Path:
