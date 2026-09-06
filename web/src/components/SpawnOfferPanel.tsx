@@ -23,14 +23,17 @@ export function SpawnOfferPanel({ notebookId, onAvailability }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const names = new Map((topics.data ?? []).map((t: Topic) => [t.id, t.name]));
-  const candidates = useMemo(
-    () => sortSpawnCandidates(offer.data?.candidates ?? []),
-    [offer.data?.candidates],
-  );
-  const maxSpawn = offer.data?.max_spawn ?? 2;
-  const selected = picked ?? defaultSelectedTopicIds(candidates, maxSpawn);
   const openSpecialists = (chats.data ?? []).filter((c: Chat) => c.kind === "specialist" && c.status === "open");
-  const hasOffer = candidates.length > 0 && openSpecialists.length < maxSpawn;
+  const openTopicIds = new Set(openSpecialists.flatMap((c: Chat) => c.topic_ids));
+  const maxSpawn = offer.data?.max_spawn ?? 2;
+  const remaining = Math.max(0, maxSpawn - openSpecialists.length);
+  const candidates = useMemo(
+    () =>
+      sortSpawnCandidates(offer.data?.candidates ?? []).filter((c) => !openTopicIds.has(c.topic_id)),
+    [offer.data?.candidates, openSpecialists],
+  );
+  const selected = picked ?? defaultSelectedTopicIds(candidates, remaining);
+  const hasOffer = candidates.length > 0 && remaining > 0;
 
   useEffect(() => {
     if (offer.loading) return;
@@ -65,14 +68,14 @@ export function SpawnOfferPanel({ notebookId, onAvailability }: Props) {
 
   function toggle(topicId: string) {
     setPicked((prev) => {
-      const current = prev ?? defaultSelectedTopicIds(candidates, maxSpawn);
+      const current = prev ?? defaultSelectedTopicIds(candidates, remaining);
       if (current.includes(topicId)) return current.filter((id) => id !== topicId);
-      return capSpawnSelection([...current, topicId], maxSpawn);
+      return capSpawnSelection([...current, topicId], remaining);
     });
   }
 
   async function openFocus() {
-    const topicIds = capSpawnSelection(selected, maxSpawn);
+    const topicIds = capSpawnSelection(selected, remaining);
     if (!topicIds.length) {
       setError("Pick at least one topic — or skip and stay on the scoreboard.");
       return;
@@ -97,8 +100,8 @@ export function SpawnOfferPanel({ notebookId, onAvailability }: Props) {
     <section className="paper" aria-labelledby="spawn-offer-heading">
       <h2 id="spawn-offer-heading">Focus chats (offer)</h2>
       <p className="lede">
-        You have gaps worth a specialist. I will keep the broad map here and handle lighter gaps. Default at most{" "}
-        {maxSpawn} chats — this is an offer, not an automatic explosion of windows.
+        You have gaps worth a specialist. I will keep the broad map here and handle lighter gaps.         Default at most {maxSpawn} open chats — this is an offer, not an automatic explosion of
+        windows{remaining < maxSpawn ? ` (${remaining} slot${remaining === 1 ? "" : "s"} left)` : ""}.
       </p>
       <div className="choices" role="group" aria-label="Suggested focus topics">
         {candidates.map((candidate) => {
