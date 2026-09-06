@@ -148,7 +148,7 @@ export type Chat = {
   topic_ids: string[];
   status: ChatStatus;
   created_at: string;
-  closed_at?: string;
+  closed_at?: string | null;
 };
 
 export type ChatMessage = {
@@ -185,6 +185,12 @@ export type Handoff = {
 export type SendChatMessageInput = {
   text: string;
   role?: ChatMessageRole;
+  generate_quiz?: boolean;
+};
+
+export type CreateSpecialistsResult = {
+  chats: Chat[];
+  warnings: string[];
 };
 
 export interface StudyApi {
@@ -209,12 +215,12 @@ export interface StudyApi {
   getSpawnOffer(notebookId: string): Promise<SpawnOffer>;
   /** GET /notebooks/:id/chats — [] on 404/501. */
   listChats(notebookId: string): Promise<Chat[]>;
-  /** POST /notebooks/:id/chats/orchestrator — idempotent get-or-create; null on 404/501. */
+  /** GET|POST /notebooks/:id/chats/orchestrator — idempotent get-or-create; null on 404/501. */
   getOrCreateOrchestrator(notebookId: string): Promise<Chat | null>;
   /** GET /chats/:id, else find in notebook chat list; null on 404/501. */
   getChat(chatId: string, notebookId?: string): Promise<Chat | null>;
-  /** POST /notebooks/:id/chats/specialists `{ topic_ids }`. */
-  createSpecialists(notebookId: string, topicIds: string[]): Promise<Chat[]>;
+  /** POST /notebooks/:id/chats/specialists `{ topic_ids }` → `{ chat, warnings }` (one chat). */
+  createSpecialists(notebookId: string, topicIds: string[]): Promise<CreateSpecialistsResult>;
   /** GET /chats/:id/messages — [] on 404/501. */
   listChatMessages(chatId: string): Promise<ChatMessage[]>;
   /** POST /chats/:id/messages — null on 404/501. */

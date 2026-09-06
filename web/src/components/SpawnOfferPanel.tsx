@@ -84,11 +84,11 @@ export function SpawnOfferPanel({ notebookId, onAvailability }: Props) {
     setError(null);
     try {
       const created = await api.createSpecialists(notebookId, topicIds);
-      if (!created.length) {
+      if (!created.chats.length) {
         setError("Study-logic did not return a specialist chat. S1 routes may not be mounted yet.");
         return;
       }
-      navigate(`/notebooks/${notebookId}/chats/${created[0].id}`);
+      navigate(`/notebooks/${notebookId}/chats/${created.chats[0].id}`);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -100,8 +100,10 @@ export function SpawnOfferPanel({ notebookId, onAvailability }: Props) {
     <section className="paper" aria-labelledby="spawn-offer-heading">
       <h2 id="spawn-offer-heading">Focus chats (offer)</h2>
       <p className="lede">
-        You have gaps worth a specialist. I will keep the broad map here and handle lighter gaps.         Default at most {maxSpawn} open chats — this is an offer, not an automatic explosion of
-        windows{remaining < maxSpawn ? ` (${remaining} slot${remaining === 1 ? "" : "s"} left)` : ""}.
+        You have gaps worth a specialist. I will keep the broad map here and handle lighter gaps.
+        Default at most {maxSpawn} open specialist chats — this is an offer, not an automatic
+        explosion of windows. Selected topics open as <strong>one</strong> focus chat
+        {remaining < maxSpawn ? ` (${remaining} slot left)` : ""}.
       </p>
       <div className="choices" role="group" aria-label="Suggested focus topics">
         {candidates.map((candidate) => {
@@ -126,11 +128,7 @@ export function SpawnOfferPanel({ notebookId, onAvailability }: Props) {
       {error ? <Banner tone="error">{error}</Banner> : null}
       <div className="row">
         <button className="btn btn-primary" type="button" onClick={() => void openFocus()} disabled={busy || selected.length === 0}>
-          {busy
-            ? "Opening…"
-            : selected.length === 1
-              ? "Open 1 focus chat"
-              : `Open ${selected.length} focus chats`}
+          {busy ? "Opening…" : "Open focus chat"}
         </button>
         <Link className="btn btn-ghost" to={`/notebooks/${notebookId}/orchestrator`}>
           Skip — keep scoreboard

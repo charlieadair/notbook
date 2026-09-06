@@ -20,12 +20,15 @@ import {
   toSources,
   toSpawnOffer,
   toTopics,
+  asRecord,
+  unwrapList,
 } from "./normalize";
 import type {
   Chat,
   ChatMessage,
   Chunk,
   ConfirmTopicsInput,
+  CreateSpecialistsResult,
   GeneratedQuiz,
   GradeAttemptInput,
   GradeAttemptResult,
@@ -164,9 +167,7 @@ export class HttpStudyApi implements StudyApi {
   }
 
   async getOrCreateOrchestrator(notebookId: string): Promise<Chat | null> {
-    const data = await this.requestOptional<unknown>(`/notebooks/${notebookId}/chats/orchestrator`, {
-      method: "POST",
-    });
+    const data = await this.requestOptional<unknown>(`/notebooks/${notebookId}/chats/orchestrator`);
     if (data === undefined) return null;
     const chats = toChats(data);
     if (chats.length) return chats.find((c) => c.kind === "orchestrator") ?? chats[0];
@@ -185,15 +186,17 @@ export class HttpStudyApi implements StudyApi {
     return listed.find((c) => c.id === chatId) ?? null;
   }
 
-  async createSpecialists(notebookId: string, topicIds: string[]): Promise<Chat[]> {
+  async createSpecialists(notebookId: string, topicIds: string[]): Promise<CreateSpecialistsResult> {
     const data = await this.request<unknown>(`/notebooks/${notebookId}/chats/specialists`, {
       method: "POST",
       json: { topic_ids: topicIds },
     });
+    const rec = asRecord(data);
+    const warnings = unwrapList<unknown>(rec.warnings, ["warnings"]).map(String);
     const chats = toChats(data);
-    if (chats.length) return chats;
+    if (chats.length) return { chats, warnings };
     const chat = toChat(data);
-    return chat.id ? [chat] : [];
+    return { chats: chat.id ? [chat] : [], warnings };
   }
 
   async listChatMessages(chatId: string): Promise<ChatMessage[]> {
@@ -204,7 +207,9 @@ export class HttpStudyApi implements StudyApi {
   async sendChatMessage(chatId: string, input: SendChatMessageInput): Promise<ChatMessage | null> {
     const data = await this.requestOptional<unknown>(`/chats/${chatId}/messages`, {
       method: "POST",
-      json: { text: input.text, role: input.role ?? "user" },
+      json: input.generate_quiz
+        ? { text: input.text, role: input.role ?? "user", generate_quiz: true }
+        : { text: input.text, role: input.role ?? "user" },
     });
     if (data === undefined) return null;
     const message = toChatMessage(data);

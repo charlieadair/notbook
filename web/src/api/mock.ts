@@ -7,6 +7,7 @@ import type {
   ChatMessage,
   Chunk,
   ConfirmTopicsInput,
+  CreateSpecialistsResult,
   GeneratedQuiz,
   GradeAttemptInput,
   GradeAttemptResult,
@@ -285,43 +286,44 @@ export class MockStudyApi implements StudyApi {
     return found ? { ...found } : null;
   }
 
-  async createSpecialists(notebookId: string, topicIds: string[]): Promise<Chat[]> {
+  async createSpecialists(notebookId: string, topicIds: string[]): Promise<CreateSpecialistsResult> {
     await this.getNotebook(notebookId);
     const unique = [...new Set(topicIds.filter(Boolean))];
     if (!unique.length) {
       throw new ApiError(400, "BadRequest", "Pick at least one topic for a focus chat");
     }
-    if (unique.length > DEFAULT_MAX_SPAWN) {
-      throw new ApiError(400, "BadRequest", `Suggest at most ${DEFAULT_MAX_SPAWN} specialist chats`);
-    }
     const openSpecialists = this.state.chats.filter(
       (c) => c.notebook_id === notebookId && c.kind === "specialist" && c.status === "open",
     );
-    if (openSpecialists.length + unique.length > DEFAULT_MAX_SPAWN) {
+    if (openSpecialists.length >= DEFAULT_MAX_SPAWN) {
       throw new ApiError(409, "TooManySpecialists", "At most two open specialist chats at a time");
     }
     await this.getOrCreateOrchestrator(notebookId);
-    const created: Chat[] = unique.map((topicId) => {
-      const chat: Chat = {
-        id: id("chat"),
-        notebook_id: notebookId,
-        kind: "specialist",
-        topic_ids: [topicId],
-        status: "open",
-        created_at: nowIso(),
-      };
-      this.state.chats.push(chat);
-      const topic = this.state.topics.find((t) => t.id === topicId);
-      this.state.messages.push({
-        id: id("msg"),
-        chat_id: chat.id,
-        role: "assistant",
-        text: `Focus chat for ${topic?.name ?? topicId}. Shared scoreboard stays live. Close when you want a handoff back to the orchestrator.`,
-        created_at: nowIso(),
-      });
-      return { ...chat };
+    const offer = await this.getSpawnOffer(notebookId);
+    const offered = new Set(offer.candidates.map((c) => c.topic_id));
+    const notOffered = unique.filter((tid) => !offered.has(tid));
+    const warnings = notOffered.length
+      ? [`topic_ids not in the current spawn offer (mild gaps stay on the scoreboard): ${notOffered.join(", ")}`]
+      : [];
+    const names = unique.map((tid) => this.state.topics.find((t) => t.id === tid)?.name ?? tid);
+    const chat: Chat = {
+      id: id("chat"),
+      notebook_id: notebookId,
+      kind: "specialist",
+      topic_ids: unique,
+      status: "open",
+      created_at: nowIso(),
+      closed_at: null,
+    };
+    this.state.chats.push(chat);
+    this.state.messages.push({
+      id: id("msg"),
+      chat_id: chat.id,
+      role: "assistant",
+      text: `Focus chat for ${names.join(", ") || "selected topics"}. Shared scoreboard stays live. Close when you want a handoff back to the orchestrator.`,
+      created_at: nowIso(),
     });
-    return created;
+    return { chats: [{ ...chat }], warnings };
   }
 
   async listChatMessages(chatId: string): Promise<ChatMessage[]> {
