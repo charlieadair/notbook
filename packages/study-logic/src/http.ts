@@ -14,7 +14,9 @@ type RouteContext = {
   body: unknown;
 };
 
-const API_PREFIX = "/api/v1";
+/** Study routes live under this prefix. DEMO serves them from Backend :8000, not this package. */
+export const STUDY_API_PREFIX = "/api/v1";
+const API_PREFIX = STUDY_API_PREFIX;
 
 function path(pattern: string): RegExp {
   return new RegExp(`^${API_PREFIX}${pattern}$`);
