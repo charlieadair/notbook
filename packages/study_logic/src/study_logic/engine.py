@@ -153,6 +153,8 @@ class StudyEngine:
         return chat
 
     def list_chats(self, notebook_id: str) -> list[Chat]:
+        # Notebook open / chat list always has a root orchestrator (get-or-create).
+        self.get_or_create_orchestrator(notebook_id)
         return self.store.list_chats(notebook_id)
 
     def spawn_offer(self, notebook_id: str) -> SpawnOffer:

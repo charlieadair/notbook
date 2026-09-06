@@ -58,11 +58,14 @@ def test_http_spawn_offer_empty_before_pretest(client: TestClient) -> None:
     body = offer.json()
     assert body["candidates"] == []
     assert body["max_spawn"] == 2
+    # Notebook open: listing chats get-or-creates the orchestrator; specialists stay unopened.
+    listed = client.get("/api/v1/notebooks/nb_bio/chats")
+    assert listed.status_code == 200
+    assert [chat["kind"] for chat in listed.json()] == ["orchestrator"]
     orch = client.post("/api/v1/notebooks/nb_bio/chats/orchestrator")
     again = client.get("/api/v1/notebooks/nb_bio/chats/orchestrator")
     assert orch.status_code == 200
-    assert again.json()["id"] == orch.json()["id"]
-    assert client.get("/api/v1/notebooks/nb_bio/chats").json()[0]["kind"] == "orchestrator"
+    assert again.json()["id"] == orch.json()["id"] == listed.json()[0]["id"]
 
 
 def test_spawn_offer_caps_at_two_and_prefers_severe() -> None:
