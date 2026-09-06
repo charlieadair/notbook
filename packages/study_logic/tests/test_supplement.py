@@ -17,13 +17,13 @@ class SpySearch:
         self.outcome = outcome
         self.queries: list[str] = []
 
-    def search(self, query: str, *, max_results: int = 3) -> SearchOutcome:
+    def search(self, query: str, top_k: int = 5) -> SearchOutcome:
         self.queries.append(query)
         return self.outcome
 
 
 class BoomSearch:
-    def search(self, query: str, *, max_results: int = 3) -> SearchOutcome:
+    def search(self, query: str, top_k: int = 5) -> SearchOutcome:
         raise AssertionError("search must not run when supplement is false")
 
 
@@ -133,6 +133,21 @@ def test_supplement_cannot_replace_empty_vault() -> None:
         assert exc.code == "InsufficientEvidence"
         assert exc.status == 422
     assert spy.queries == []
+
+
+def test_backend_style_search_callable_is_injected() -> None:
+    queries: list[str] = []
+
+    def search(query: str, top_k: int = 5):
+        queries.append(query)
+        return [WEB_HIT.as_dict()]
+
+    engine = StudyEngine(retrieve=create_fixture_vault().retrieve, search=search)
+    engine.confirm_topics("nb_bio", names=["Mitosis"])
+    result = engine.create_quiz("nb_bio", supplement=True)
+    assert queries == ["Mitosis"]
+    assert result["items"][0]["web_citations"][0]["url"] == WEB_HIT.url
+    assert result["items"][0]["citation_chunk_ids"]
 
 
 def test_http_quiz_body_forwards_supplement() -> None:

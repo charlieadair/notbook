@@ -82,7 +82,7 @@ install_study_logic(app, retrieve=app.state.retrieve, list_chunks=app.state.list
 
 HTTP `POST /api/v1/notebooks/{id}/retrieve` is a thin wrapper over that same callable. `GET /inference` reports `study_logic_mounted: true`. Quiz pedagogy stays in Study-logic.
 
-Optional web supplement (`POST …/quizzes` with `supplement=true`) is also Study-owned: `study_logic.search.SearxngClient` reads `SEARXNG_URL`. Backend httpx is only the OpenAI-compatible inference adapter — do not add a second search client here. Unset/down SearXNG is a warning + vault-only fallback, not invented hits.
+Optional web supplement (`POST …/quizzes` with `supplement=true`) is Study-owned **quiz policy** on a Backend-owned search hook: `search(query, top_k=5) -> list[{title, url, snippet}]`. `mount_study_logic` forwards `app.state.search` when present. Unset/down SearXNG is empty results + warning, not invented hits. Do not add a second SearXNG client in Study if Backend already mounted one.
 
 ## Inspectability
 

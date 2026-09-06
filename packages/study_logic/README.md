@@ -30,8 +30,19 @@ def list_chunks(notebook_id: str, limit: int = 32):
     # Recent/representative chunks — no scores. Used by topic propose.
     return backend_vault.sample(notebook_id, limit)
 
+def search(query: str, top_k: int = 5):
+    # Backend-owned SearXNG egress — list[{title, url, snippet}]
+    # Unset/down → [] (and a warning on GET /supplement/search). Never invent hits.
+    return backend_search(query, top_k)
+
 app = FastAPI()
-install_study_logic(app, retrieve=retrieve, list_chunks=list_chunks, prefix="/api/v1")
+install_study_logic(
+    app,
+    retrieve=retrieve,
+    list_chunks=list_chunks,
+    search=search,
+    prefix="/api/v1",
+)
 # app now serves study routes on :8000 under /api/v1
 ```
 
@@ -43,8 +54,11 @@ from study_logic.api import create_router, router
 
 app = FastAPI()
 
-# Production: pass Backend retrieve + sample-chunks
-app.include_router(create_router(retrieve=retrieve, list_chunks=list_chunks), prefix="/api/v1")
+# Production: pass Backend retrieve + sample-chunks + search (when present)
+app.include_router(
+    create_router(retrieve=retrieve, list_chunks=list_chunks, search=search),
+    prefix="/api/v1",
+)
 
 # Offline fixture only (nb_bio):
 # from study_logic.api import router
@@ -108,17 +122,22 @@ S1 chat tree (same router / same process):
 
 Optional `{ "topic_ids": [...] }` on `POST /quizzes` scopes generation; omit it for the S0 whole-notebook pretest.
 
-Optional `{ "supplement": true }` is an **explicit opt-in** for labeled web background (issue #43). Default is vault-only. When true, Study searches confirmed topic names (especially useful when vault evidence is thin), passes `[web]` snippets into generation as a hedge, and still requires vault `citation_chunk_ids`. Items that used web hits include `web_citations[]` (`url`, `title`, `snippet`, `source: "web"`). Unset or down SearXNG → `warnings[]` and vault-only fallback — never invented hits. Chat `generate_quiz` stays vault-only.
+Optional `{ "supplement": true }` is an **explicit opt-in** for labeled web background (issue #43). Default is vault-only. When true, Study calls the injected `search=` hook (Backend-owned SearXNG egress) for confirmed topic names, passes `[web]` snippets into generation as a hedge, and still requires vault `citation_chunk_ids`. Items that used web hits include `web_citations[]` (`url`, `title`, `snippet`, `source: "web"`). Unset or down SearXNG → empty results + `warnings[]` and vault-only fallback — never invented hits. Chat `generate_quiz` stays vault-only. Study does **not** call search unless `supplement=true`.
 
 ### Enable SearXNG (optional)
 
-Study-logic owns the HTTP client (`study_logic.search.SearxngClient`). Backend’s httpx stack is inference-only.
+**Backend owns SearXNG egress.** Study prefers the same DI style as retrieve:
 
-1. Set `SEARXNG_URL` (example: `http://127.0.0.1:8080` on the host, or `http://searxng:8080` on the compose network).
-2. Start the optional compose service: `docker compose --profile supplement up searxng` (settings in [`deploy/searxng/settings.yml`](../../deploy/searxng/settings.yml) enable the JSON API).
-3. `POST /api/v1/notebooks/{id}/quizzes` with `{ "supplement": true }`.
+```
+search(query: str, top_k: int = 5) -> list[{title, url, snippet}]
+```
 
-If `SEARXNG_URL` is missing or the instance is down, the response includes a warning and items stay vault-cited.
+Optional HTTP (Backend): `GET /api/v1/supplement/search?q=&top_k=` → `{ results: [...] }` (plus `warning` when unset/down). Out-of-process Study can use `HttpSupplementSearch` against that route — do not add a second SearXNG client in DEMO if Backend already mounted one.
+
+`mount_study_logic` forwards `app.state.search` when Backend sets it. If `search=` is omitted, Study falls back to `SEARXNG_URL` (empty + warning when unset/down) so standalone tests still work.
+
+1. Backend: set `SEARXNG_URL` and start `docker compose --profile supplement up searxng` ([`deploy/searxng/settings.yml`](../../deploy/searxng/settings.yml) enables JSON).
+2. `POST /api/v1/notebooks/{id}/quizzes` with `{ "supplement": true }`.
 
 ## S1 shapes (Web)
 

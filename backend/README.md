@@ -48,7 +48,7 @@ export OPENAI_API_KEY=sk-...
 
 Never commit API keys. See [`.env.example`](.env.example).
 
-Optional web supplement is **Study-logic owned** (`SEARXNG_URL`). Backend httpx is inference-only. Unset or down SearXNG → warning + vault-only quiz generate. See the root README.
+Optional web supplement: Backend owns SearXNG egress (`search=` / `GET /api/v1/supplement/search`). Study only calls it when `supplement=true`. Unset or down → empty + warning, vault-only quiz generate. See the root README.
 
 **Timeouts (S0, issue #35):** upload is synchronous but hard-bounded. PDF extract times out after `PDF_EXTRACT_TIMEOUT_SECONDS` (default 30s) and is also capped by `PDF_MAX_PAGES` / `PDF_MAX_CHARS`. A timeout or pypdf failure still creates the `Source` with `extract_status=failed` and returns **201** (inspect the row; do not hang). Embedding uses HTTP connect + read timeouts on the OpenAI-compatible client plus `EMBED_TIMEOUT_SECONDS` around `embed()`; on failure/timeout chunks are stored without vectors and retrieve uses FTS/keyword. **OpenRouter `:free` embed models can queue or never return** — they must not be allowed to block upload. Override the env vars in [`.env.example`](.env.example) if a local runtime needs a longer budget.
 

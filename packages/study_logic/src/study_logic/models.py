@@ -73,6 +73,15 @@ class WebCitation:
     title: str
     snippet: str
 
+    @classmethod
+    def from_mapping(cls, data: Mapping[str, Any]) -> WebCitation | None:
+        url = str(data.get("url") or "").strip()
+        title = str(data.get("title") or "").strip()
+        snippet = str(data.get("snippet") or data.get("content") or "").strip()
+        if not url:
+            return None
+        return cls(url=url, title=title or url, snippet=snippet)
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "url": self.url,

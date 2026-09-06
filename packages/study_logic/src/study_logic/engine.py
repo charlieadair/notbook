@@ -26,7 +26,7 @@ from study_logic.models import (
 )
 from study_logic.quiz import CompleteFn, build_grounded_items, create_quiz_record, evidence_is_thin
 from study_logic.scoreboard import build_scoreboard, score_topic
-from study_logic.search import SearchAdapter, search_adapter_from_env
+from study_logic.search import SearchAdapter, SearchFn, call_search, search_adapter_from_env
 from study_logic.store import MemoryStore
 from study_logic.topics import all_topics_confirmed, normalize_explicit_names, propose_topic_names, topics_from_names
 from study_logic.vault import (
@@ -46,7 +46,7 @@ class StudyEngine:
         store: MemoryStore | None = None,
         list_chunks: ListChunksFn | None = None,
         complete: CompleteFn | None = None,
-        search: SearchAdapter | None = None,
+        search: SearchAdapter | SearchFn | None = None,
     ) -> None:
         if retrieve is None and list_chunks is None:
             vault = create_fixture_vault()
@@ -169,7 +169,7 @@ class StudyEngine:
                 + ". Web snippets are a labeled hedge, not course truth."
             )
         for topic in topics:
-            outcome = adapter.search(topic.name)
+            outcome = call_search(adapter, topic.name)
             if outcome.warning and outcome.warning not in warnings:
                 warnings.append(outcome.warning)
             if outcome.hits:

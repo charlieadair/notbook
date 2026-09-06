@@ -112,6 +112,7 @@ def mount_study_logic(app: FastAPI) -> None:
         retrieve=app.state.retrieve,
         list_chunks=app.state.list_chunks,
         complete=complete,
+        search=getattr(app.state, "search", None),
         prefix="/api/v1",
     )
     app.state.study_logic_mounted = True

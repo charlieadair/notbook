@@ -110,7 +110,7 @@ npm start          # offline fixture smoke on 127.0.0.1:3001, not DEMO
 
 Vault-grounded quizzes stay the default. An **explicit** `supplement=true` on `POST /api/v1/notebooks/{id}/quizzes` may fetch labeled web snippets as a thin-vault hedge. Web is never silent course truth: items still require vault `citation_chunk_ids`, and web hits appear separately as `web_citations[]` (`url` / `title` / `snippet`). Not used for S2 flashcards or media.
 
-Study-logic owns the SearXNG HTTP client (`SEARXNG_URL`). Backend’s httpx client is only the OpenAI-compatible inference adapter — not a search home. If the env var is unset or SearXNG is down, generation warns and falls back to vault-only (no invented results).
+**Backend owns SearXNG egress.** Study calls it only when `supplement=true`, via the same DI style as retrieve: `search(query, top_k=5) -> list[{title, url, snippet}]` (or `GET /api/v1/supplement/search?q=&top_k=`). If `search=` is not injected, Study falls back to `SEARXNG_URL`. Unset or down → warning + vault-only (no invented results).
 
 ```bash
 # Optional compose service (not started by default)
