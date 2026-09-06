@@ -1,6 +1,8 @@
 # Notbook
 
 Study for your next exam efficiently!
+Spend less time with your nose in textbooks,
+and more time actually learning!
 
 ## Problem / Use-Case
 
@@ -55,6 +57,11 @@ The web interface allows you to take the quizzes and ask questions throughout.
 I want this to be an accessible tool and as such. I want to be able to run this using either local
 models (expecting 16 GB of GPU accelerated memory) or use it via an MCP using the inference provider
 that you already pay for.
+
+## Spec & build team
+
+- Product contract: [`SPEC.md`](SPEC.md) (challenge target: **S0**, self-hosted)
+- Grok Bot roster (Scope, Study-logic, Backend, Web, Release): [`bots/README.md`](bots/README.md)
 
 ## Acknowledgement
 
