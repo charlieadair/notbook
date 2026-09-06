@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate, useOutletContext } from "react-router-dom";
 import { useApi } from "../api/ApiContext";
 import type { Chunk, GeneratedQuiz, QuizItem } from "../api/types";
@@ -26,6 +26,27 @@ export function Quiz() {
   const [error, setError] = useState<string | null>(null);
   const [gate, setGate] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [topicsReady, setTopicsReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .listTopics(notebookId)
+      .then((rows) => {
+        if (cancelled) return;
+        const confirmed = rows.length > 0 && rows.every((t) => t.confirmed);
+        setTopicsReady(confirmed);
+        if (!confirmed) {
+          setGate("Confirm topics before starting the pretest.");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setTopicsReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, notebookId]);
 
   const item = quiz?.items[index];
   const state = item ? itemState[item.id] : undefined;
@@ -114,9 +135,15 @@ export function Quiz() {
         ) : null}
         {error ? <Banner tone="error">{error}</Banner> : null}
         <div className="row">
-          <button className="btn btn-primary" type="button" onClick={() => void startPretest()} disabled={busy}>
-            {busy ? "Building pretest…" : "Start pretest"}
-          </button>
+          {topicsReady ? (
+            <button className="btn btn-primary" type="button" onClick={() => void startPretest()} disabled={busy}>
+              {busy ? "Building pretest…" : "Start pretest"}
+            </button>
+          ) : (
+            <button className="btn btn-primary" type="button" disabled>
+              Start pretest (confirm topics first)
+            </button>
+          )}
           <Link className="btn btn-ghost" to={`/notebooks/${notebookId}/topics`}>
             Back to topics
           </Link>
