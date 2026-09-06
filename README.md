@@ -70,7 +70,7 @@ This project is being built with Grok Bot as part of the Student Build Challenge
 
 ## S0 study engine
 
-Challenge target for this repo is **S0 only** (topics, grounded pretest, scoreboard). Study logic lives in [`packages/study-logic`](packages/study-logic) as a **library**. DEMO composition is Web UI **:3000** + Backend **:8000** (Backend mounts `/api/v1` study routes). This package does not bind :3000.
+Challenge target for this repo is **S0 only** (topics, grounded pretest, scoreboard). Study logic lives in [`packages/study-logic`](packages/study-logic) as a **library**. DEMO composition is Web UI **:3000** + Backend **FastAPI :8000** (FastAPI mounts `/api/v1` study routes). Offline fixture smoke binds **127.0.0.1:3001** (`PORT` / `HOST`). This package does not bind :3000.
 
 ```bash
 npm install

@@ -2,7 +2,12 @@ export { StudyEngine } from "./engine.js";
 export type { StudyEngineOptions } from "./engine.js";
 export { StudyError, topicsUnconfirmed, insufficientEvidence } from "./errors.js";
 export { createStudyServer, STUDY_API_PREFIX } from "./http.js";
-export { DEMO_BACKEND_PORT, DEMO_UI_PORT, STANDALONE_SMOKE_PORT } from "./ports.js";
+export {
+  DEMO_BACKEND_PORT,
+  DEMO_UI_PORT,
+  STANDALONE_SMOKE_HOST,
+  STANDALONE_SMOKE_PORT,
+} from "./ports.js";
 export { MemoryStore } from "./store.js";
 export {
   InMemoryVault,

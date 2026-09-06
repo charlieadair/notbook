@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Offline fixture smoke (default :3001). DEMO API is Backend :8000.
+# Offline fixture smoke (127.0.0.1:3001). DEMO API is Backend FastAPI :8000 /api/v1.
 BASE="${1:-http://127.0.0.1:3001}"
 API="$BASE/api/v1"
 

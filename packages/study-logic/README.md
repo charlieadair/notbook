@@ -9,9 +9,9 @@ This package is a **library**. It does **not** implement UI, OCR, or an embeddin
 | Process | Port | Role |
 | --- | --- | --- |
 | Web UI | **:3000** | Frontend only |
-| Backend | **:8000** | Single API. Mounts study routes at `/api/v1` |
+| Backend **FastAPI** | **:8000** | Single API. Mounts study routes at `/api/v1` |
 
-Study-logic must not bind `:3000`. Backend imports `StudyEngine` and mounts the routes below on `:8000`. Retrieval stays on Backend (`VaultRetrieve` / StubInference).
+Production/demo mounts study routes under **Backend FastAPI `/api/v1` on :8000**. This package must not bind `:3000` or `:::3000`. Backend imports `StudyEngine` and wires those handlers. Retrieval stays on Backend (`VaultRetrieve` / StubInference).
 
 ```ts
 import { StudyEngine, HttpVaultRetrieve, StudyError } from "@notbook/study-logic";
@@ -32,20 +32,20 @@ const engine = new StudyEngine({
 
 ## Offline fixture smoke (not DEMO)
 
-`createStudyServer(engine)` + `npm start` is optional, for fixture smoke only.
+`createStudyServer(engine)` + `npm start` is optional, for fixture smoke only. It binds **127.0.0.1** (not all interfaces) on **PORT** (default **3001**).
 
 ```bash
 npm install
 npm test
 npm run build
-npm start                 # PORT defaults to 3001 — never 3000
-# or: PORT=3001 npm start
+npm start                 # 127.0.0.1:3001 — never :3000 / :::3000
+# or: HOST=127.0.0.1 PORT=3001 npm start
 bash packages/study-logic/scripts/smoke.sh   # http://127.0.0.1:3001
 ```
 
 ## HTTP routes
 
-All study routes are under `/api/v1` (DEMO: Backend `:8000`; offline smoke: `:3001`).
+All study routes are under `/api/v1` (DEMO: Backend FastAPI `:8000`; offline smoke: `127.0.0.1:3001`).
 
 | Method | Path | Behavior |
 | --- | --- | --- |
