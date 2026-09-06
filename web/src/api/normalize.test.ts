@@ -160,6 +160,13 @@ describe("S1 chat-tree normalize", () => {
     expect(posted.text).toBe("Focus on this topic.");
     expect(posted).not.toHaveProperty("content");
   });
+
+  it("reads ChatMessage.text from a legacy content field if text is absent", () => {
+    const posted = toChatMessage({
+      message: { id: "m2", chat_id: "c1", role: "assistant", content: "legacy body", created_at: "now" },
+    });
+    expect(posted.text).toBe("legacy body");
+  });
 });
 
 describe("ApiError", () => {
