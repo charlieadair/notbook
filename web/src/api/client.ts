@@ -27,6 +27,7 @@ import type {
   Topic,
 } from "./types";
 
+/** Vault paths match `backend/docs/openapi.json` on main (single POST /sources, inspect, HealthOut). */
 export type HttpClientOptions = {
   baseUrl?: string;
   fetchFn?: typeof fetch;

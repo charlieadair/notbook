@@ -10,6 +10,17 @@ function jsonResponse(status: number, body: unknown): Response {
   });
 }
 
+describe("HttpStudyApi OpenAPI vault paths", () => {
+  it("GETs /health and maps HealthOut {status, service}", async () => {
+    const fetchFn = vi.fn(async (input: RequestInfo | URL) => {
+      expect(String(input)).toBe("http://127.0.0.1:8000/api/v1/health");
+      return jsonResponse(200, { status: "ok", service: "notbook-study-api" });
+    });
+    const api = new HttpStudyApi({ baseUrl: "http://127.0.0.1:8000/api/v1", fetchFn });
+    await expect(api.health()).resolves.toEqual({ ok: true, service: "notbook-study-api" });
+  });
+});
+
 describe("HttpStudyApi.createPretest", () => {
   it("POSTs /notebooks/:id/quizzes only", async () => {
     const fetchFn = vi.fn(async (input: RequestInfo | URL) => {
