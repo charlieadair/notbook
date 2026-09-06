@@ -499,13 +499,12 @@ def _load_json_payload(raw: str) -> Any:
             lines = lines[:-1]
         text = "\n".join(lines).strip()
     decoder = json.JSONDecoder()
-    for opener in ("{", "["):
-        idx = text.find(opener)
-        if idx < 0:
-            continue
-        try:
-            payload, _end = decoder.raw_decode(text[idx:])
-        except json.JSONDecodeError:
-            continue
-        return payload
-    raise ValueError("no JSON object or array in completion")
+    starts = [i for i in (text.find("{"), text.find("[")) if i >= 0]
+    if not starts:
+        raise ValueError("no JSON object or array in completion")
+    idx = min(starts)
+    try:
+        payload, _end = decoder.raw_decode(text[idx:])
+    except json.JSONDecodeError as exc:
+        raise ValueError("no JSON object or array in completion") from exc
+    return payload

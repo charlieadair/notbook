@@ -35,7 +35,7 @@ def test_parse_llm_slices_object_and_fence():
 
 
 def test_parse_llm_slices_bare_list():
-    rows = parse_llm_slices('[{"text": "spectral theorem"}]')
+    rows = parse_llm_slices('Here you go:\n[{"text": "spectral theorem"}]')
     assert rows[0]["text"] == "spectral theorem"
 
 
