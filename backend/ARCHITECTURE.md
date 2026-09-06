@@ -43,7 +43,23 @@ S0 does not use an external vector database.
 
 ## Chunking
 
-~2400-character windows (~500–800 tokens at ~4 chars/token) with 400-character overlap. PDF locators include `page`. Image locators include `region` (`full`) and `order`. Markdown/paste locators include `char_start` / `char_end` / `order`.
+Primary path is **whole-document LLM semantic slicing**, then embed those slices. Fixed character windows are the fallback, not the preferred strategy.
+
+`CHUNKING_STRATEGY` (`auto` | `llm` | `heuristic`, default `auto`):
+
+- **`auto`** — call `InferenceAdapter.complete` when the active adapter is openai-compatible; otherwise heuristic windows.
+- **`llm`** — same LLM path, still skipped for the stub adapter (`complete` is not a slicer).
+- **`heuristic`** — existing ~2400-character windows (~500–800 tokens at ~4 chars/token) with 400-character overlap, soft breaks at newlines/spaces.
+
+LLM path (issue #42):
+
+1. After extract, pass the **full extracted text** to `complete` with a structured prompt asking for an ordered JSON list of `{text, char_start?, char_end?}`.
+2. One-shot up to `LLM_CHUNK_MAX_CHARS` (default 24_000). Longer sources are split into sequential whole-doc segments at paragraph/newline/space boundaries (no overlap, no invented text); slice lists are merged.
+3. Every slice must be a substring of — or tightly whitespace-grounded in — the source. Invented slices are dropped. Stored text is the source span, never model paraphrase. At most `LLM_CHUNK_MAX_SLICES` (default 64) slices are kept.
+4. `complete` is wrapped in `run_with_timeout` (`LLM_CHUNK_TIMEOUT_SECONDS`, default 30s). Timeout, parse failure, empty output, ungrounded-only output, or stub adapter → **hard fallback** to `chunk_text` windows so upload never hangs.
+5. Slices are then embedded exactly as today (`EMBED_TIMEOUT_SECONDS` + FTS fallback).
+
+**PDF locators:** pages are concatenated with `\n\n--- page N ---\n\n` markers into one string for the LLM (whole-document slicing, not per-paragraph). Each grounded slice’s `char_start` is mapped back to a page via those marker offsets (best-effort; a slice that crosses a marker keeps the page of its start). Heuristic fallback still chunks **per extracted page** so `page` stays exact. Image locators include `region` (`full`). Markdown/paste locators include `char_start` / `char_end` / `order`.
 
 ## OCR and extract status
 

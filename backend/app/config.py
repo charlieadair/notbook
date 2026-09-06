@@ -64,6 +64,23 @@ class Settings(BaseSettings):
         default=30.0,
         validation_alias=AliasChoices("EMBED_TIMEOUT_SECONDS", "embed_timeout_seconds"),
     )
+    # auto: LLM slices when a remote adapter is active, else heuristic windows.
+    chunking_strategy: str = Field(
+        default="auto",
+        validation_alias=AliasChoices("CHUNKING_STRATEGY", "chunking_strategy"),
+    )
+    llm_chunk_timeout_seconds: float = Field(
+        default=30.0,
+        validation_alias=AliasChoices("LLM_CHUNK_TIMEOUT_SECONDS", "llm_chunk_timeout_seconds"),
+    )
+    llm_chunk_max_chars: int = Field(
+        default=24_000,
+        validation_alias=AliasChoices("LLM_CHUNK_MAX_CHARS", "llm_chunk_max_chars"),
+    )
+    llm_chunk_max_slices: int = Field(
+        default=64,
+        validation_alias=AliasChoices("LLM_CHUNK_MAX_SLICES", "llm_chunk_max_slices"),
+    )
 
     @property
     def db_path(self) -> Path:
@@ -81,3 +98,20 @@ class Settings(BaseSettings):
         if name == "auto" and self.openai_api_base and self.openai_api_key:
             return "openai-compatible"
         return "stub"
+
+    def uses_llm_chunking(self, inference_name: str | None) -> bool:
+        """LLM path when strategy is llm, or auto + a non-stub remote adapter.
+
+        Stub complete() is not a slicer — always heuristic so ingest stays offline.
+        """
+        strategy = (self.chunking_strategy or "auto").strip().lower()
+        if strategy not in {"llm", "heuristic", "auto"}:
+            strategy = "auto"
+        if strategy == "heuristic":
+            return False
+        adapter = (inference_name or "").strip().lower()
+        if adapter == "stub":
+            return False
+        if strategy == "llm":
+            return True
+        return adapter == "openai-compatible" or self.resolved_adapter() == "openai-compatible"
