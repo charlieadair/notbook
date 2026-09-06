@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from study_logic.engine import StudyEngine
 from study_logic.errors import StudyError
 from study_logic.models import AttemptBody, ConfirmBody, MessageBody, QuizBody, SpecialistBody
+from study_logic.quiz import CompleteFn
 from study_logic.vault import ListChunksFn, RetrieveFn, create_fixture_vault
 
 
@@ -27,9 +28,10 @@ def create_router(
     retrieve: RetrieveFn | None = None,
     engine: StudyEngine | None = None,
     list_chunks: ListChunksFn | None = None,
+    complete: CompleteFn | None = None,
 ) -> APIRouter:
     """S0 + S1 routes without `/api/v1`. Backend mounts with prefix=\"/api/v1\"."""
-    study = engine or StudyEngine(retrieve=retrieve, list_chunks=list_chunks)
+    study = engine or StudyEngine(retrieve=retrieve, list_chunks=list_chunks, complete=complete)
     api = APIRouter()
 
     @api.post("/notebooks/{notebook_id}/topics/propose")
@@ -125,10 +127,16 @@ def install_study_logic(
     retrieve: RetrieveFn | None = None,
     list_chunks: ListChunksFn | None = None,
     engine: StudyEngine | None = None,
+    complete: CompleteFn | None = None,
     prefix: str = "/api/v1",
 ) -> APIRouter:
     """DEMO mount: one FastAPI process on :8000 includes S0 + S1 routes."""
-    mounted = create_router(retrieve=retrieve, engine=engine, list_chunks=list_chunks)
+    mounted = create_router(
+        retrieve=retrieve,
+        engine=engine,
+        list_chunks=list_chunks,
+        complete=complete,
+    )
     app.add_exception_handler(StudyError, study_error_handler)
     app.include_router(mounted, prefix=prefix)
     return mounted

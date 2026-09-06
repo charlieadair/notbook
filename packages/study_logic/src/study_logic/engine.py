@@ -23,7 +23,7 @@ from study_logic.models import (
     SpawnOffer,
     Topic,
 )
-from study_logic.quiz import build_grounded_items, create_quiz_record
+from study_logic.quiz import CompleteFn, build_grounded_items, create_quiz_record
 from study_logic.scoreboard import build_scoreboard, score_topic
 from study_logic.store import MemoryStore
 from study_logic.topics import all_topics_confirmed, normalize_explicit_names, propose_topic_names, topics_from_names
@@ -43,6 +43,7 @@ class StudyEngine:
         retrieve: RetrieveFn | None = None,
         store: MemoryStore | None = None,
         list_chunks: ListChunksFn | None = None,
+        complete: CompleteFn | None = None,
     ) -> None:
         if retrieve is None and list_chunks is None:
             vault = create_fixture_vault()
@@ -51,6 +52,7 @@ class StudyEngine:
         self.retrieve = retrieve or create_fixture_vault().retrieve
         self.list_chunks = list_chunks or companion_list_chunks(self.retrieve)
         self.store = store or MemoryStore()
+        self.complete = complete
 
     def propose_topics(self, notebook_id: str) -> list[Topic]:
         # Never sample via retrieve(query=""): Backend blank-query retrieve is [].
@@ -123,7 +125,7 @@ class StudyEngine:
             raise insufficient_evidence("Vault is empty or returned no citable chunks")
 
         quiz_id = str(uuid.uuid4())
-        items = build_grounded_items(quiz_id, topics, evidence)
+        items = build_grounded_items(quiz_id, topics, evidence, complete=self.complete)
         if not items:
             raise insufficient_evidence("No grounded quiz items could be built from retrieved chunks")
 

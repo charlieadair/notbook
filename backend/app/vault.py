@@ -105,10 +105,13 @@ def bind_list_chunks(app: FastAPI) -> ListChunksFn:
 
 def mount_study_logic(app: FastAPI) -> None:
     """Include Study-logic on the same :8000 app with retrieve + sample-chunks callables."""
+    inference = getattr(app.state, "inference", None)
+    complete = getattr(inference, "complete", None) if inference is not None else None
     install_study_logic(
         app,
         retrieve=app.state.retrieve,
         list_chunks=app.state.list_chunks,
+        complete=complete,
         prefix="/api/v1",
     )
     app.state.study_logic_mounted = True

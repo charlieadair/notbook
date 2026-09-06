@@ -1,6 +1,6 @@
 from study_logic.engine import StudyEngine
 from study_logic.models import QuizChoice, QuizItem
-from study_logic.quiz import is_grounded_item, keep_grounded_items
+from study_logic.quiz import MAX_CHOICE_CHARS, is_exam_shaped_item, is_grounded_item, keep_grounded_items
 from study_logic.vault import create_fixture_vault, fixture_chunks
 
 
@@ -13,6 +13,11 @@ def test_generated_items_have_real_citation_chunk_ids() -> None:
     assert result["items"]
     for item in result["items"]:
         assert item["citation_chunk_ids"]
+        assert "stated in the cited source" not in item["stem"].lower()
+        correct = next(c for c in item["choices"] if c["id"] == item["correct_choice_id"])
+        assert len(correct["text"]) <= MAX_CHOICE_CHARS
+        assert item.get("rationale")
+        assert "because [" in item["rationale"].lower()
         for chunk_id in item["citation_chunk_ids"]:
             assert chunk_id in known
             chunk = vault.get_chunk(chunk_id)
