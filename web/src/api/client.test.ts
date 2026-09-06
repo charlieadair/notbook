@@ -197,7 +197,29 @@ describe("HttpStudyApi S1 stubs", () => {
     await expect(api.listChatMessages("c1")).resolves.toEqual([]);
     await expect(api.getOrCreateOrchestrator("nb")).resolves.toBeNull();
     await expect(api.getChat("c1")).resolves.toBeNull();
-    await expect(api.sendChatMessage("c1", { content: "hi" })).resolves.toBeNull();
+    await expect(api.sendChatMessage("c1", { text: "hi" })).resolves.toBeNull();
+  });
+
+  it("POSTs /chats/:id/messages with { text } (Study-logic MessageBody)", async () => {
+    const fetchFn = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe("http://127.0.0.1:8000/api/v1/chats/c1/messages");
+      expect(init?.method).toBe("POST");
+      const body = JSON.parse(String(init?.body));
+      expect(body).toEqual({ text: "Focus on this topic.", role: "user" });
+      expect(body).not.toHaveProperty("content");
+      return jsonResponse(200, {
+        message: {
+          id: "m1",
+          chat_id: "c1",
+          role: "user",
+          text: "Focus on this topic.",
+          created_at: "t",
+        },
+      });
+    });
+    const api = new HttpStudyApi({ baseUrl: "http://127.0.0.1:8000/api/v1", fetchFn });
+    const posted = await api.sendChatMessage("c1", { text: "Focus on this topic." });
+    expect(posted).toMatchObject({ id: "m1", chat_id: "c1", text: "Focus on this topic." });
   });
 });
 
@@ -260,7 +282,7 @@ describe("MockStudyApi S0 path", () => {
     expect(specialists.length).toBeGreaterThan(0);
     expect(specialists.every((c) => c.kind === "specialist" && c.status === "open")).toBe(true);
 
-    await api.sendChatMessage(specialists[0].id, { content: "Stay on this topic." });
+    await api.sendChatMessage(specialists[0].id, { text: "Stay on this topic." });
     const handoff = await api.closeChat(specialists[0].id);
     expect(handoff.summary.length).toBeGreaterThan(0);
     expect(handoff.topic_ids).toEqual(specialists[0].topic_ids);

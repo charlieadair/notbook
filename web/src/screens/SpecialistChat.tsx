@@ -40,7 +40,7 @@ export function SpecialistChat() {
     setError(null);
     setComposeNote(null);
     try {
-      const posted = await api.sendChatMessage(chatId, { content });
+      const posted = await api.sendChatMessage(chatId, { text: content });
       setDraft("");
       if (!posted) {
         setComposeNote("Message endpoint is not mounted yet. You can still close this chat to send a handoff.");
@@ -128,7 +128,7 @@ export function SpecialistChat() {
               <p className="muted">
                 {message.role} {formatWhen(message.created_at)}
               </p>
-              <p>{message.content}</p>
+              <p>{message.text}</p>
             </article>
           ))}
         </div>

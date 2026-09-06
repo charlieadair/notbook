@@ -316,7 +316,7 @@ export class MockStudyApi implements StudyApi {
         id: id("msg"),
         chat_id: chat.id,
         role: "assistant",
-        content: `Focus chat for ${topic?.name ?? topicId}. Shared scoreboard stays live. Close when you want a handoff back to the orchestrator.`,
+        text: `Focus chat for ${topic?.name ?? topicId}. Shared scoreboard stays live. Close when you want a handoff back to the orchestrator.`,
         created_at: nowIso(),
       });
       return { ...chat };
@@ -334,13 +334,13 @@ export class MockStudyApi implements StudyApi {
     const chat = this.state.chats.find((c) => c.id === chatId);
     if (!chat) throw new ApiError(404, "NotFound", `Chat not found: ${chatId}`);
     if (chat.status === "closed") throw new ApiError(409, "ChatClosed", "This focus chat is already closed");
-    const text = input.content.trim();
+    const text = input.text.trim();
     if (!text) throw new ApiError(400, "BadRequest", "Message is empty");
     const user: ChatMessage = {
       id: id("msg"),
       chat_id: chatId,
       role: input.role ?? "user",
-      content: text,
+      text,
       created_at: nowIso(),
     };
     this.state.messages.push(user);
@@ -350,7 +350,7 @@ export class MockStudyApi implements StudyApi {
         id: id("msg"),
         chat_id: chatId,
         role: "assistant",
-        content: `Noted. This specialist stays scoped to ${names.join(", ") || "the selected topic"}. I will not invent a lecture here — close the chat to send a handoff to the orchestrator.`,
+        text: `Noted. This specialist stays scoped to ${names.join(", ") || "the selected topic"}. I will not invent a lecture here — close the chat to send a handoff to the orchestrator.`,
         created_at: nowIso(),
       });
     }
@@ -388,7 +388,7 @@ export class MockStudyApi implements StudyApi {
       id: id("msg"),
       chat_id: orchestrator.id,
       role: "handoff",
-      content: handoff.summary,
+      text: handoff.summary,
       created_at: handoff.created_at,
     });
     return { ...handoff, scoreboard_snapshot: handoff.scoreboard_snapshot.map((s) => ({ ...s })) };
