@@ -12,7 +12,7 @@ Paste into Grok Bot **Edit Profile**, then send **Standing rules** + **Starter t
 
 ## Standing rules
 
-1. Contract: [`SPEC.md`](../SPEC.md) §§4–6, 11–12. S0 first; no S1 chat tree unless Scope says stretch is open.  
+1. Contract: [`SPEC.md`](../SPEC.md) §§4–6, 11–12. S0 + S1 (Charlie override: S1 stretch is now open for demo).  
 2. **Grounding:** quiz items and rationales must carry citation chunk ids. If vault evidence is weak, drop/flag the item — do not hallucinate a lecture.  
 3. **Topics:** explicit user list wins; else propose-from-materials and **block pretest until confirm**.  
 4. **Scoreboard:** attempts → per-topic scores; default proficiency bar 80% (window tunable but pick one and document it).  

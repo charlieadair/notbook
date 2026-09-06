@@ -4,7 +4,7 @@ Study harness for exam prep: grounded quizzes and flashcards, a durable struggle
 
 **Status:** challenge-scoped draft  
 **Approach:** single-app study OS (staged delivery), **self-hosted first**  
-**Challenge target:** **S0** (S1 only if time)  
+**Challenge target:** **S0 + S1** (Charlie override 2026-09-06)  
 **Non-goals (challenge):** podcasts, slides, mind maps, video ingest, multi-user SaaS, public k8s deploy, Legal/ToS for strangers  
 
 Bot roster (how we build): see [`bots/README.md`](bots/README.md).
@@ -83,7 +83,7 @@ Leaving the door open means: keep a clean inference adapter and data model; do *
 
 **Challenge demo audience:** Judges / peers who need a 30-second story: *self-hosted study harness; notes stay local; every answer cites what was consumed; scoreboard shows real weaknesses.*
 
-**Session success (time-boxed):** In one sitting, ingest or open a notebook, confirm topics (if needed), take a pretest, see a struggle map, leave with updated scores. (Focus chats = S1 stretch.)
+**Session success (time-boxed):** In one sitting, ingest or open a notebook, confirm topics (if needed), take a pretest, see a struggle map, optionally open focus chats and receive handoffs, leave with updated scores.
 
 **Arc success (measurable lift):** Over multiple sessions, topic scores on previously weak areas rise; mild gaps stay visible so they are not neglected.
 
@@ -236,7 +236,7 @@ Quiz generation must pull from vault evidence for the tagged topic. Items withou
 | Scoreboard | Aggregate attempts → per-topic state | Study-logic |
 | Chat tree | Orchestrator / specialists / handoffs | Study-logic (S1) |
 | UI | Vault browser, quiz, citations, scoreboard | Web |
-| Scope / merge bar | S0 only; reject creep | Scope + Release |
+| Scope / merge bar | S0 + S1; reject S2–S4 creep | Scope + Release |
 
 ---
 
@@ -245,7 +245,7 @@ Quiz generation must pull from vault evidence for the tagged topic. Items withou
 | Stage | Ships | Challenge? |
 | --- | --- | --- |
 | **S0 — Spine** | Ingest (text + handwriting OCR), **inspectable vault**, topic propose/confirm, grounded pretest, quiz UI, scoreboard | **Required demo** |
-| **S1 — Tree** | Orchestrator spawn offers, specialist chats, auto handoff + shared scores, neglect-aware suggestions | Stretch only |
+| **S1 — Tree** | Orchestrator spawn offers, specialist chats, auto handoff + shared scores, neglect-aware suggestions | **Required for demo (Charlie override)** |
 | **S2 — Teaching polish** | Miss → explain → retest UX, difficulty controls, flashcards, export | After challenge |
 | **S3 — Multimodal** | Video/slides ingest (only if still wanted) | After challenge |
 | **S4 — Hosted GTM door** | Multi-user auth, tenant isolation, Privacy/ToS, GHCR→k8s→Cloudflare public ingress | Explicitly deferred |
@@ -299,7 +299,7 @@ Conceptual records (storage tech chosen by Backend/Web during S0; keep local):
 - [ ] Completing a pretest updates a visible per-topic scoreboard  
 - [ ] Demo narrative holds: local materials, visible consumption, grounded quiz  
 
-**S1 acceptance (stretch)**
+**S1 acceptance (demo bar)**
 
 - [ ] After pretest, orchestrator offers focus chats proportional to severity  
 - [ ] Specialist progress updates the shared scoreboard  
@@ -325,4 +325,4 @@ Conceptual records (storage tech chosen by Backend/Web during S0; keep local):
 
 ## 14. Summary
 
-Notbook is a **self-hosted, inspectable, scoreboard-driven study OS**: confirm what the exam covers, test against a vault you can see, keep a holistic struggle map, and (later) delegate deep holes to specialist chats — without Gemini-style fixation or NotebookLM’s media distractions. The Student Build Challenge ships **S0**; hosted go-to-market is a deferred door, not the current build.
+Notbook is a **self-hosted, inspectable, scoreboard-driven study OS**: confirm what the exam covers, test against a vault you can see, keep a holistic struggle map, and delegate deep holes to specialist chats — without Gemini-style fixation or NotebookLM’s media distractions. The Student Build Challenge ships **S0 + S1**; **S2–S4** stay deferred. Hosted go-to-market is a deferred door, not the current build.
