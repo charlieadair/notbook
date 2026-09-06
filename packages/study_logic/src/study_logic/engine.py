@@ -3,8 +3,26 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from study_logic.errors import bad_request, insufficient_evidence, not_found, topics_unconfirmed
-from study_logic.models import DEFAULT_TOP_K, Attempt, Scoreboard, Topic
+from study_logic.chats import build_handoff_summary, build_spawn_offer
+from study_logic.errors import (
+    bad_request,
+    chat_closed,
+    insufficient_evidence,
+    not_found,
+    too_many_specialists,
+    topics_unconfirmed,
+)
+from study_logic.models import (
+    DEFAULT_TOP_K,
+    MAX_SPAWN,
+    Attempt,
+    Chat,
+    ChatMessage,
+    Handoff,
+    Scoreboard,
+    SpawnOffer,
+    Topic,
+)
 from study_logic.quiz import build_grounded_items, create_quiz_record
 from study_logic.scoreboard import build_scoreboard, score_topic
 from study_logic.store import MemoryStore
@@ -54,10 +72,16 @@ class StudyEngine:
     def list_topics(self, notebook_id: str) -> list[Topic]:
         return self.store.list_topics(notebook_id)
 
-    def create_quiz(self, notebook_id: str) -> dict:
+    def create_quiz(self, notebook_id: str, topic_ids: list[str] | None = None) -> dict:
         topics = self.store.list_topics(notebook_id)
         if not all_topics_confirmed(topics):
             raise topics_unconfirmed("Confirm every topic before generating a quiz")
+        if topic_ids:
+            wanted = {tid for tid in topic_ids if tid}
+            scoped = [topic for topic in topics if topic.id in wanted]
+            if not scoped:
+                raise bad_request("No matching confirmed topics for quiz")
+            topics = scoped
 
         evidence: dict[str, list] = {}
         known_ids: set[str] = set()
@@ -106,3 +130,149 @@ class StudyEngine:
 
     def scoreboard(self, notebook_id: str) -> Scoreboard:
         return build_scoreboard(notebook_id, self.store.list_topics(notebook_id), self.store.list_attempts(notebook_id))
+
+    def get_or_create_orchestrator(self, notebook_id: str) -> Chat:
+        existing = self.store.get_orchestrator(notebook_id)
+        if existing:
+            if existing.status == "closed":
+                existing.status = "open"
+                existing.closed_at = None
+                self.store.put_chat(existing)
+            return existing
+        now = datetime.now(timezone.utc).isoformat()
+        chat = Chat(
+            id=str(uuid.uuid4()),
+            notebook_id=notebook_id,
+            kind="orchestrator",
+            topic_ids=[],
+            status="open",
+            created_at=now,
+            closed_at=None,
+        )
+        self.store.put_chat(chat)
+        return chat
+
+    def list_chats(self, notebook_id: str) -> list[Chat]:
+        return self.store.list_chats(notebook_id)
+
+    def spawn_offer(self, notebook_id: str) -> SpawnOffer:
+        topics = self.store.list_topics(notebook_id)
+        return build_spawn_offer(notebook_id, topics, self.scoreboard(notebook_id))
+
+    def open_specialist(self, notebook_id: str, topic_ids: list[str]) -> dict:
+        unique: list[str] = []
+        seen: set[str] = set()
+        for raw in topic_ids:
+            topic_id = raw.strip() if isinstance(raw, str) else str(raw)
+            if not topic_id or topic_id in seen:
+                continue
+            seen.add(topic_id)
+            unique.append(topic_id)
+        if not unique:
+            raise bad_request("topic_ids is required")
+
+        topics = {topic.id: topic for topic in self.store.list_topics(notebook_id)}
+        missing = [topic_id for topic_id in unique if topic_id not in topics]
+        if missing:
+            raise bad_request(f"Unknown topic_ids: {', '.join(missing)}")
+        if any(not topics[topic_id].confirmed for topic_id in unique):
+            raise topics_unconfirmed("Specialist topics must be confirmed")
+
+        if len(self.store.list_open_specialists(notebook_id)) >= MAX_SPAWN:
+            raise too_many_specialists(f"At most {MAX_SPAWN} open specialist chats")
+
+        offered = {candidate.topic_id for candidate in self.spawn_offer(notebook_id).candidates}
+        warnings: list[str] = []
+        not_offered = [topic_id for topic_id in unique if topic_id not in offered]
+        if not_offered:
+            warnings.append(
+                "topic_ids not in the current spawn offer (mild gaps stay on the scoreboard): "
+                + ", ".join(not_offered)
+            )
+
+        self.get_or_create_orchestrator(notebook_id)
+        now = datetime.now(timezone.utc).isoformat()
+        chat = Chat(
+            id=str(uuid.uuid4()),
+            notebook_id=notebook_id,
+            kind="specialist",
+            topic_ids=unique,
+            status="open",
+            created_at=now,
+            closed_at=None,
+        )
+        self.store.put_chat(chat)
+        return {"chat": chat.as_dict(), "warnings": warnings}
+
+    def post_message(
+        self,
+        chat_id: str,
+        role: str = "user",
+        text: str = "",
+        generate_quiz: bool = False,
+    ) -> dict:
+        chat = self.store.get_chat(chat_id)
+        if not chat:
+            raise not_found(f"Chat not found: {chat_id}")
+        if chat.status != "open":
+            raise chat_closed("Cannot post to a closed chat")
+
+        trimmed = (text or "").strip()
+        if not trimmed and not generate_quiz:
+            raise bad_request("text is required unless generate_quiz is true")
+
+        quiz_payload = None
+        stored_role = "assistant" if role == "assistant" else "user"
+        if generate_quiz:
+            scope = list(chat.topic_ids) if chat.kind == "specialist" and chat.topic_ids else None
+            quiz_payload = self.create_quiz(chat.notebook_id, topic_ids=scope)
+            if not trimmed:
+                trimmed = "Generated a grounded quiz from the vault (items include citation_chunk_ids)."
+                stored_role = "assistant"
+
+        message = ChatMessage(
+            id=str(uuid.uuid4()),
+            chat_id=chat.id,
+            role=stored_role,
+            text=trimmed,
+            created_at=datetime.now(timezone.utc).isoformat(),
+        )
+        self.store.add_message(message)
+        result: dict = {"message": message.as_dict()}
+        if quiz_payload:
+            result["quiz"] = quiz_payload
+        return result
+
+    def close_chat(self, chat_id: str) -> dict:
+        chat = self.store.get_chat(chat_id)
+        if not chat:
+            raise not_found(f"Chat not found: {chat_id}")
+        if chat.kind != "specialist":
+            raise bad_request("Only specialist chats write a handoff on close")
+
+        existing = self.store.get_handoff_for_chat(chat.id)
+        if chat.status == "closed" and existing:
+            return {"chat": chat.as_dict(), "handoff": existing.as_dict()}
+
+        now = datetime.now(timezone.utc).isoformat()
+        chat.status = "closed"
+        chat.closed_at = now
+        self.store.put_chat(chat)
+
+        orchestrator = self.get_or_create_orchestrator(chat.notebook_id)
+        board = self.scoreboard(chat.notebook_id)
+        topics = self.store.list_topics(chat.notebook_id)
+        handoff = Handoff(
+            id=str(uuid.uuid4()),
+            from_chat_id=chat.id,
+            to_chat_id=orchestrator.id,
+            topic_ids=list(chat.topic_ids),
+            summary=build_handoff_summary(chat, topics, board),
+            scoreboard_snapshot=list(board.topics),
+            created_at=now,
+        )
+        self.store.add_handoff(handoff)
+        return {"chat": chat.as_dict(), "handoff": handoff.as_dict()}
+
+    def list_handoffs(self, notebook_id: str) -> list[Handoff]:
+        return self.store.list_handoffs(notebook_id)

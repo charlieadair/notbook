@@ -23,3 +23,11 @@ def not_found(message: str) -> StudyError:
 
 def bad_request(message: str) -> StudyError:
     return StudyError("BadRequest", 400, message)
+
+
+def too_many_specialists(message: str = "At most 2 open specialist chats") -> StudyError:
+    return StudyError("TooManySpecialists", 409, message)
+
+
+def chat_closed(message: str = "Chat is closed") -> StudyError:
+    return StudyError("ChatClosed", 409, message)

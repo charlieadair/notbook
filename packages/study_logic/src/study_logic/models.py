@@ -10,6 +10,7 @@ PROFICIENCY_BAR = 0.8
 SEVERE_RATE = 0.5
 SEVERE_MISS_COUNT = 3
 DEFAULT_TOP_K = 8
+MAX_SPAWN = 2
 
 
 @dataclass
@@ -167,6 +168,96 @@ class Scoreboard:
         }
 
 
+@dataclass
+class Chat:
+    id: str
+    notebook_id: str
+    kind: Literal["orchestrator", "specialist"]
+    topic_ids: list[str]
+    status: Literal["open", "closed"]
+    created_at: str
+    closed_at: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "notebook_id": self.notebook_id,
+            "kind": self.kind,
+            "topic_ids": list(self.topic_ids),
+            "status": self.status,
+            "created_at": self.created_at,
+            "closed_at": self.closed_at,
+        }
+
+
+@dataclass
+class ChatMessage:
+    id: str
+    chat_id: str
+    role: Literal["user", "assistant"]
+    text: str
+    created_at: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "chat_id": self.chat_id,
+            "role": self.role,
+            "text": self.text,
+            "created_at": self.created_at,
+        }
+
+
+@dataclass
+class SpawnCandidate:
+    topic_id: str
+    severity: Literal["mild", "severe"]
+    reason: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "topic_id": self.topic_id,
+            "severity": self.severity,
+            "reason": self.reason,
+        }
+
+
+@dataclass
+class SpawnOffer:
+    notebook_id: str
+    candidates: list[SpawnCandidate]
+    max_spawn: int = MAX_SPAWN
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "notebook_id": self.notebook_id,
+            "candidates": [c.as_dict() for c in self.candidates],
+            "max_spawn": self.max_spawn,
+        }
+
+
+@dataclass
+class Handoff:
+    id: str
+    from_chat_id: str
+    to_chat_id: str
+    topic_ids: list[str]
+    summary: str
+    scoreboard_snapshot: list[TopicScore]
+    created_at: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "from_chat_id": self.from_chat_id,
+            "to_chat_id": self.to_chat_id,
+            "topic_ids": list(self.topic_ids),
+            "summary": self.summary,
+            "scoreboard_snapshot": [s.as_dict() for s in self.scoreboard_snapshot],
+            "created_at": self.created_at,
+        }
+
+
 class ConfirmBody(BaseModel):
     names: list[str] | None = None
     topics: list[str] | None = None
@@ -176,3 +267,19 @@ class ConfirmBody(BaseModel):
 class AttemptBody(BaseModel):
     item_id: str = Field(min_length=1)
     selected_choice_id: str = Field(min_length=1)
+
+
+class QuizBody(BaseModel):
+    """Optional topic scope. Omit for the S0 whole-notebook pretest."""
+
+    topic_ids: list[str] | None = None
+
+
+class SpecialistBody(BaseModel):
+    topic_ids: list[str] = Field(min_length=1)
+
+
+class MessageBody(BaseModel):
+    role: Literal["user", "assistant"] = "user"
+    text: str = ""
+    generate_quiz: bool = False

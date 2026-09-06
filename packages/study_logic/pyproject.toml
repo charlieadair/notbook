@@ -1,7 +1,7 @@
 [project]
 name = "study-logic"
 version = "0.1.0"
-description = "Notbook S0 study engine — FastAPI router for Backend :8000"
+description = "Notbook S0+S1 study engine — FastAPI router for Backend :8000"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115.0",
