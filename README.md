@@ -68,6 +68,17 @@ that you already pay for.
 
 This project is being built with Grok Bot as part of the Student Build Challenge!
 
+## Backend (S0 Study API)
+
+Local vault + inference adapter lives in [`backend/`](backend/). FastAPI, SQLite, filesystem store. See [`backend/README.md`](backend/README.md) and [`backend/ARCHITECTURE.md`](backend/ARCHITECTURE.md).
+
+```bash
+cd backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
 ## S0 study engine
 
 Challenge target for this repo is **S0 only** (topics, grounded pretest, scoreboard). DEMO is Web UI **:3000** + one Backend **FastAPI :8000**.
