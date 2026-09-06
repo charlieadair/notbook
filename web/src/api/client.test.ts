@@ -106,6 +106,71 @@ describe("HttpStudyApi.createPretest", () => {
     ]);
   });
 
+  it("aborts a hung upload so Uploading cannot stick forever", async () => {
+    const fetchFn = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          reject(new DOMException("The operation was aborted.", "AbortError"));
+        });
+      });
+    });
+    const api = new HttpStudyApi({
+      baseUrl: "http://127.0.0.1:8000/api/v1",
+      fetchFn,
+      uploadTimeoutMs: 20,
+    });
+    await expect(api.uploadSource("nb", new File(["x"], "lec1-notes.pdf"))).rejects.toMatchObject({
+      name: "ApiError",
+      code: "UploadTimeout",
+      isUploadTimeout: true,
+    });
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect((fetchFn.mock.calls[0][1] as RequestInit).signal?.aborted).toBe(true);
+  });
+
+  it("aborts a hung paste on the same timeout path", async () => {
+    const fetchFn = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          reject(new DOMException("The operation was aborted.", "AbortError"));
+        });
+      });
+    });
+    const api = new HttpStudyApi({
+      baseUrl: "http://127.0.0.1:8000/api/v1",
+      fetchFn,
+      uploadTimeoutMs: 20,
+    });
+    await expect(api.pasteSource("nb", { text: "notes that never come back" })).rejects.toMatchObject({
+      code: "UploadTimeout",
+    });
+  });
+
+  it("returns Backend extract_status when the upload request completes failed", async () => {
+    const fetchFn = vi.fn(async () =>
+      jsonResponse(201, {
+        id: "s1",
+        filename: "lec1-notes.pdf",
+        extract_status: "failed",
+        error: "PDF extract timed out",
+        chunk_count: 0,
+      }),
+    );
+    const api = new HttpStudyApi({ baseUrl: "http://127.0.0.1:8000/api/v1", fetchFn });
+    const source = await api.uploadSource("nb", new File(["x"], "lec1-notes.pdf"));
+    expect(source.extract_status).toBe("failed");
+    expect(source.extract_error).toBe("PDF extract timed out");
+  });
+
+  it("clears Uploading on a non-OK sources response", async () => {
+    const fetchFn = vi.fn(async () => jsonResponse(500, { message: "extract failed" }));
+    const api = new HttpStudyApi({ baseUrl: "http://127.0.0.1:8000/api/v1", fetchFn });
+    await expect(api.uploadSource("nb", new File(["x"], "a.pdf"))).rejects.toMatchObject({
+      status: 500,
+      message: "extract failed",
+    });
+  });
+
   it("lists chunks at GET /sources/:id/chunks", async () => {
     const fetchFn = vi.fn(async (input: RequestInfo | URL) => {
       expect(String(input)).toBe("http://127.0.0.1:8000/api/v1/sources/src1/chunks");

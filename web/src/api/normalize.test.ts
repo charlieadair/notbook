@@ -176,6 +176,7 @@ describe("ApiError", () => {
     expect(gate.isTopicsUnconfirmed).toBe(true);
     expect(thin.isInsufficientEvidence).toBe(true);
     expect(new ApiError(404, "NotFound", "missing").isUnavailable).toBe(true);
+    expect(new ApiError(408, "UploadTimeout", "timed out").isUploadTimeout).toBe(true);
     expect(new ApiError(409, "TooManySpecialists", "cap").isTooManySpecialists).toBe(true);
     expect(new ApiError(409, "TooManySpecialists", "cap").isTopicsUnconfirmed).toBe(false);
     expect(parseErrorBody({ error: "topics_unconfirmed" }).code).toBe("topics_unconfirmed");

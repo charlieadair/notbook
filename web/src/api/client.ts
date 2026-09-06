@@ -1,6 +1,7 @@
-import { API_BASE_URL, joinUrl } from "../lib/config";
+import { API_BASE_URL, UPLOAD_TIMEOUT_MS, joinUrl } from "../lib/config";
 import { emptySpawnOffer } from "../lib/spawn";
-import { apiErrorFromResponse, isApiError } from "./errors";
+import { UPLOAD_HANG_MESSAGE } from "../lib/upload";
+import { ApiError, apiErrorFromResponse, isAbortError, isApiError } from "./errors";
 import {
   toChat,
   toChatMessage,
@@ -48,15 +49,19 @@ import type {
 export type HttpClientOptions = {
   baseUrl?: string;
   fetchFn?: typeof fetch;
+  /** Override client abort for POST /sources. Default: UPLOAD_TIMEOUT_MS (75s). */
+  uploadTimeoutMs?: number;
 };
 
 export class HttpStudyApi implements StudyApi {
   private readonly baseUrl: string;
   private readonly fetchFn: typeof fetch;
+  private readonly uploadTimeoutMs: number;
 
   constructor(options: HttpClientOptions = {}) {
     this.baseUrl = (options.baseUrl ?? API_BASE_URL).replace(/\/$/, "");
     this.fetchFn = options.fetchFn ?? fetch.bind(globalThis);
+    this.uploadTimeoutMs = options.uploadTimeoutMs ?? UPLOAD_TIMEOUT_MS;
   }
 
   async health(): Promise<Health> {
@@ -86,6 +91,7 @@ export class HttpStudyApi implements StudyApi {
     const data = await this.request<unknown>(`/notebooks/${notebookId}/sources`, {
       method: "POST",
       body,
+      timeoutMs: this.uploadTimeoutMs,
     });
     return toSource(data);
   }
@@ -94,6 +100,7 @@ export class HttpStudyApi implements StudyApi {
     const data = await this.request<unknown>(`/notebooks/${notebookId}/sources`, {
       method: "POST",
       json: { filename: input.filename, text: input.text },
+      timeoutMs: this.uploadTimeoutMs,
     });
     return toSource(data);
   }
@@ -248,25 +255,47 @@ export class HttpStudyApi implements StudyApi {
 
   private async request<T>(
     path: string,
-    init: RequestInit & { json?: unknown } = {},
+    init: RequestInit & { json?: unknown; timeoutMs?: number } = {},
   ): Promise<T> {
-    const headers = new Headers(init.headers);
-    let body = init.body;
-    if (init.json !== undefined) {
+    const { json, timeoutMs, signal: outerSignal, headers: initHeaders, body: initBody, ...rest } = init;
+    const headers = new Headers(initHeaders);
+    let body = initBody;
+    if (json !== undefined) {
       headers.set("content-type", "application/json");
-      body = JSON.stringify(init.json);
+      body = JSON.stringify(json);
     }
-    const res = await this.fetchFn(joinUrl(this.baseUrl, path), {
-      ...init,
-      headers,
-      body,
-    });
-    if (!res.ok) {
-      throw await apiErrorFromResponse(res);
+
+    const controller = timeoutMs != null && timeoutMs > 0 ? new AbortController() : undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (controller && timeoutMs) {
+      timer = setTimeout(() => controller.abort(), timeoutMs);
+      if (outerSignal) {
+        if (outerSignal.aborted) controller.abort();
+        else outerSignal.addEventListener("abort", () => controller.abort(), { once: true });
+      }
     }
-    if (res.status === 204) return undefined as T;
-    const text = await res.text();
-    if (!text) return undefined as T;
-    return JSON.parse(text) as T;
+
+    try {
+      const res = await this.fetchFn(joinUrl(this.baseUrl, path), {
+        ...rest,
+        headers,
+        body,
+        signal: controller?.signal ?? outerSignal,
+      });
+      if (!res.ok) {
+        throw await apiErrorFromResponse(res);
+      }
+      if (res.status === 204) return undefined as T;
+      const text = await res.text();
+      if (!text) return undefined as T;
+      return JSON.parse(text) as T;
+    } catch (err) {
+      if (controller?.signal.aborted && isAbortError(err)) {
+        throw new ApiError(408, "UploadTimeout", UPLOAD_HANG_MESSAGE);
+      }
+      throw err;
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
   }
 }
