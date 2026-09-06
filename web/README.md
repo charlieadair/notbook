@@ -80,7 +80,14 @@ Typed client in `src/api/`. Base `/api/v1`. Vault names match Backend + OpenAPI 
 - Ingest: single `POST /notebooks/:id/sources` — multipart `file` or JSON `{ filename?, text }`
 - Inspect (vault UI): `GET /notebooks/:id/sources`, `GET /sources/:id/chunks`, `GET /chunks/:id`
 - Study: topics propose/confirm/list, `POST /notebooks/:id/quizzes`, `POST /quizzes/:id/attempts`, scoreboard
-- S1 (issue #22; 404/501 → empty, S0 screens stay up): `GET /notebooks/:id/spawn-offer`, `GET|POST /notebooks/:id/chats`, `POST /notebooks/:id/chats/orchestrator`, `POST /notebooks/:id/chats/specialists` `{ topic_ids }`, `GET|POST /chats/:id/messages`, `POST /chats/:id/close`, `GET /notebooks/:id/handoffs`
+- S1 (Study-logic PR #24 / issue #22; 404/501 → empty, S0 screens stay up):
+  - `GET|POST /notebooks/:id/chats/orchestrator` (idempotent get-or-create)
+  - `GET /notebooks/:id/chats` (list; get-or-creates orchestrator)
+  - `GET /notebooks/:id/spawn-offer` — empty `candidates` until pretest attempts; never invented client-side
+  - `POST /notebooks/:id/chats/specialists` `{ topic_ids }` → `{ chat, warnings[] }` (one chat; 409 `TooManySpecialists` on a third open specialist)
+  - `POST /chats/:id/messages` `{ text, generate_quiz? }` → `{ message, quiz? }`
+  - `POST /chats/:id/close` → `{ chat, handoff }`
+  - `GET /notebooks/:id/handoffs`
 
 Retrieve stays on the client for Study-logic; the vault browser uses inspect only.
 

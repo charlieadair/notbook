@@ -1,5 +1,5 @@
 import { DEFAULT_MAX_SPAWN } from "./types";
-import { offerFromScoreboard } from "../lib/spawn";
+import { emptySpawnOffer, offerFromScoreboard } from "../lib/spawn";
 import { ApiError } from "./errors";
 import type {
   Attempt,
@@ -7,6 +7,7 @@ import type {
   ChatMessage,
   Chunk,
   ConfirmTopicsInput,
+  CreateSpecialistsResult,
   GeneratedQuiz,
   GradeAttemptInput,
   GradeAttemptResult,
@@ -17,6 +18,7 @@ import type {
   QuizItem,
   Scoreboard,
   SendChatMessageInput,
+  SendChatMessageResult,
   Source,
   SpawnOffer,
   StudyApi,
@@ -255,10 +257,13 @@ export class MockStudyApi implements StudyApi {
 
   async getSpawnOffer(notebookId: string): Promise<SpawnOffer> {
     await this.getNotebook(notebookId);
+    const hasAttempts = this.state.attempts.some((a) => a.notebook_id === notebookId);
+    if (!hasAttempts) return emptySpawnOffer(notebookId);
     return offerFromScoreboard(notebookId, this.scoresFor(notebookId), DEFAULT_MAX_SPAWN);
   }
 
   async listChats(notebookId: string): Promise<Chat[]> {
+    await this.getOrCreateOrchestrator(notebookId);
     return this.state.chats.filter((c) => c.notebook_id === notebookId).map((c) => ({ ...c }));
   }
 
@@ -285,43 +290,44 @@ export class MockStudyApi implements StudyApi {
     return found ? { ...found } : null;
   }
 
-  async createSpecialists(notebookId: string, topicIds: string[]): Promise<Chat[]> {
+  async createSpecialists(notebookId: string, topicIds: string[]): Promise<CreateSpecialistsResult> {
     await this.getNotebook(notebookId);
     const unique = [...new Set(topicIds.filter(Boolean))];
     if (!unique.length) {
       throw new ApiError(400, "BadRequest", "Pick at least one topic for a focus chat");
     }
-    if (unique.length > DEFAULT_MAX_SPAWN) {
-      throw new ApiError(400, "BadRequest", `Suggest at most ${DEFAULT_MAX_SPAWN} specialist chats`);
-    }
     const openSpecialists = this.state.chats.filter(
       (c) => c.notebook_id === notebookId && c.kind === "specialist" && c.status === "open",
     );
-    if (openSpecialists.length + unique.length > DEFAULT_MAX_SPAWN) {
+    if (openSpecialists.length >= DEFAULT_MAX_SPAWN) {
       throw new ApiError(409, "TooManySpecialists", "At most two open specialist chats at a time");
     }
     await this.getOrCreateOrchestrator(notebookId);
-    const created: Chat[] = unique.map((topicId) => {
-      const chat: Chat = {
-        id: id("chat"),
-        notebook_id: notebookId,
-        kind: "specialist",
-        topic_ids: [topicId],
-        status: "open",
-        created_at: nowIso(),
-      };
-      this.state.chats.push(chat);
-      const topic = this.state.topics.find((t) => t.id === topicId);
-      this.state.messages.push({
-        id: id("msg"),
-        chat_id: chat.id,
-        role: "assistant",
-        text: `Focus chat for ${topic?.name ?? topicId}. Shared scoreboard stays live. Close when you want a handoff back to the orchestrator.`,
-        created_at: nowIso(),
-      });
-      return { ...chat };
+    const offer = await this.getSpawnOffer(notebookId);
+    const offered = new Set(offer.candidates.map((c) => c.topic_id));
+    const notOffered = unique.filter((tid) => !offered.has(tid));
+    const warnings = notOffered.length
+      ? [`topic_ids not in the current spawn offer (mild gaps stay on the scoreboard): ${notOffered.join(", ")}`]
+      : [];
+    const names = unique.map((tid) => this.state.topics.find((t) => t.id === tid)?.name ?? tid);
+    const chat: Chat = {
+      id: id("chat"),
+      notebook_id: notebookId,
+      kind: "specialist",
+      topic_ids: unique,
+      status: "open",
+      created_at: nowIso(),
+      closed_at: null,
+    };
+    this.state.chats.push(chat);
+    this.state.messages.push({
+      id: id("msg"),
+      chat_id: chat.id,
+      role: "assistant",
+      text: `Focus chat for ${names.join(", ") || "selected topics"}. Shared scoreboard stays live. Close when you want a handoff back to the orchestrator.`,
+      created_at: nowIso(),
     });
-    return created;
+    return { chats: [{ ...chat }], warnings };
   }
 
   async listChatMessages(chatId: string): Promise<ChatMessage[]> {
@@ -330,31 +336,40 @@ export class MockStudyApi implements StudyApi {
       .map((m) => ({ ...m, citation_chunk_ids: m.citation_chunk_ids ? [...m.citation_chunk_ids] : undefined }));
   }
 
-  async sendChatMessage(chatId: string, input: SendChatMessageInput): Promise<ChatMessage> {
+  async sendChatMessage(chatId: string, input: SendChatMessageInput): Promise<SendChatMessageResult> {
     const chat = this.state.chats.find((c) => c.id === chatId);
     if (!chat) throw new ApiError(404, "NotFound", `Chat not found: ${chatId}`);
     if (chat.status === "closed") throw new ApiError(409, "ChatClosed", "This focus chat is already closed");
-    const text = input.text.trim();
-    if (!text) throw new ApiError(400, "BadRequest", "Message is empty");
-    const user: ChatMessage = {
+    let text = (input.text ?? "").trim();
+    if (!text && !input.generate_quiz) throw new ApiError(422, "BadRequest", "text is required unless generate_quiz is true");
+    const role =
+      input.generate_quiz && !text ? "assistant" : ((input.role ?? "user") as ChatMessage["role"]);
+    if (input.generate_quiz && !text) {
+      text = "Generated a grounded quiz from the vault (items include citation_chunk_ids).";
+    }
+    const stored: ChatMessage = {
       id: id("msg"),
       chat_id: chatId,
-      role: input.role ?? "user",
+      role,
       text,
       created_at: nowIso(),
     };
-    this.state.messages.push(user);
-    if (chat.kind === "specialist" && (input.role ?? "user") === "user") {
+    this.state.messages.push(stored);
+    let quiz: GeneratedQuiz | undefined;
+    if (input.generate_quiz) {
+      quiz = await this.createPretest(chat.notebook_id);
+    }
+    if (chat.kind === "specialist" && role === "user") {
       const names = chat.topic_ids.map((tid) => this.state.topics.find((t) => t.id === tid)?.name ?? tid);
       this.state.messages.push({
         id: id("msg"),
         chat_id: chatId,
         role: "assistant",
-        text: `Noted. This specialist stays scoped to ${names.join(", ") || "the selected topic"}. I will not invent a lecture here — close the chat to send a handoff to the orchestrator.`,
+        text: `Noted. This specialist stays scoped to ${names.join(", ") || "the selected topic"}. Grade via existing attempts. Close the chat to send a handoff.`,
         created_at: nowIso(),
       });
     }
-    return { ...user };
+    return { message: { ...stored }, quiz };
   }
 
   async closeChat(chatId: string): Promise<Handoff> {
