@@ -47,7 +47,7 @@ describe("HttpStudyApi.createPretest", () => {
     expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 
-  it("uploads and pastes via POST /notebooks/:id/sources", async () => {
+  it("uploads and pastes via locked Backend ingest routes", async () => {
     const urls: string[] = [];
     const fetchFn = vi.fn(async (input: RequestInfo | URL) => {
       urls.push(String(input));
@@ -57,14 +57,14 @@ describe("HttpStudyApi.createPretest", () => {
     await api.uploadSource("nb", new File(["x"], "a.pdf"));
     await api.pasteSource("nb", { text: "hello there this is pasted notes." });
     expect(urls).toEqual([
-      "http://127.0.0.1:8000/api/v1/notebooks/nb/sources",
-      "http://127.0.0.1:8000/api/v1/notebooks/nb/sources",
+      "http://127.0.0.1:8000/api/v1/notebooks/nb/sources/upload",
+      "http://127.0.0.1:8000/api/v1/notebooks/nb/sources/paste",
     ]);
   });
 
-  it("lists chunks at GET /sources/:id/chunks", async () => {
+  it("lists chunks at GET /notebooks/:id/sources/:sourceId/chunks", async () => {
     const fetchFn = vi.fn(async (input: RequestInfo | URL) => {
-      expect(String(input)).toBe("http://127.0.0.1:8000/api/v1/sources/src1/chunks");
+      expect(String(input)).toBe("http://127.0.0.1:8000/api/v1/notebooks/nb/sources/src1/chunks");
       return jsonResponse(200, [{ id: "c1", text: "chunk" }]);
     });
     const api = new HttpStudyApi({ baseUrl: "http://127.0.0.1:8000/api/v1", fetchFn });

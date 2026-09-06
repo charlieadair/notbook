@@ -74,10 +74,13 @@ This mock is **not** real OCR, retrieval, or grounded generation. Filenames cont
 
 ## Client contract
 
-Typed client in `src/api/`. Paths match main OpenAPI + Study-logic on `/api/v1`:
+Typed client in `src/api/`. Base `/api/v1`. Vault names match Backend + OpenAPI on main:
 
-- Vault: `POST/GET /notebooks`, **`POST /notebooks/:id/sources`** (multipart `file` or JSON paste), `GET /notebooks/:id/sources`, `GET /sources/:id/chunks`, `GET /chunks/:id`, retrieve, health
-- Study: topics propose/confirm/list, **`POST /notebooks/:id/quizzes`**, `POST /quizzes/:id/attempts`, scoreboard
+- Ingest: multipart `POST /notebooks/:id/sources/upload`, JSON `POST /notebooks/:id/sources/paste`
+- Inspect (vault UI): `GET /notebooks/:id/sources`, `GET /notebooks/:id/sources/:sourceId/chunks`, `GET /chunks/:id`
+- Study: topics propose/confirm/list, `POST /notebooks/:id/quizzes`, `POST /quizzes/:id/attempts`, scoreboard
+
+Retrieve stays on the client for Study-logic; the vault browser uses inspect only.
 
 Gates: **409** `{ error: "TopicsUnconfirmed" | "topics_unconfirmed" }`, **422** `{ error: "InsufficientEvidence" | "insufficient_evidence" }`.
 

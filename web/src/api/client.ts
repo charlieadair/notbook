@@ -65,7 +65,7 @@ export class HttpStudyApi implements StudyApi {
   async uploadSource(notebookId: string, file: File): Promise<Source> {
     const body = new FormData();
     body.append("file", file);
-    const data = await this.request<unknown>(`/notebooks/${notebookId}/sources`, {
+    const data = await this.request<unknown>(`/notebooks/${notebookId}/sources/upload`, {
       method: "POST",
       body,
     });
@@ -73,7 +73,7 @@ export class HttpStudyApi implements StudyApi {
   }
 
   async pasteSource(notebookId: string, input: { filename?: string; text: string }): Promise<Source> {
-    const data = await this.request<unknown>(`/notebooks/${notebookId}/sources`, {
+    const data = await this.request<unknown>(`/notebooks/${notebookId}/sources/paste`, {
       method: "POST",
       json: { filename: input.filename, text: input.text },
     });
@@ -84,8 +84,10 @@ export class HttpStudyApi implements StudyApi {
     return toSources(await this.request<unknown>(`/notebooks/${notebookId}/sources`));
   }
 
-  async listChunks(_notebookId: string, sourceId: string): Promise<Chunk[]> {
-    return toChunks(await this.request<unknown>(`/sources/${sourceId}/chunks`));
+  async listChunks(notebookId: string, sourceId: string): Promise<Chunk[]> {
+    return toChunks(
+      await this.request<unknown>(`/notebooks/${notebookId}/sources/${sourceId}/chunks`),
+    );
   }
 
   async getChunk(chunkId: string): Promise<Chunk> {
