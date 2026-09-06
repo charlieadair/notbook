@@ -19,7 +19,7 @@ npm install
 npm run dev
 ```
 
-Open `http://127.0.0.1:3000`. No account. If the home screen says the API is unreachable, start Backend on `:8000` — do not point Web at Study-logic’s standalone `:3000`, and do not use `VITE_USE_MOCK=1` for the judge path.
+Open `http://127.0.0.1:3000`. No account. Full DEMO needs Backend vault (PR #3, on main) on `:8000`. If the home screen says the API is unreachable, start that API — do not point Web at Study-logic’s standalone `:3000`, and do not use `VITE_USE_MOCK=1` for the judge path.
 
 ## Click path (~60s)
 
