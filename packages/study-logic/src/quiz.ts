@@ -100,7 +100,7 @@ function makeItem(args: {
 
 function pickDistractors(correct: SentenceHit, pool: SentenceHit[]): string[] {
   const others = pool
-    .filter((s) => s.text !== correct.text)
+    .filter((s) => s.text !== correct.text && s.chunk_id !== correct.chunk_id)
     .map((s) => s.text);
   const unique = [...new Set(others)];
   const picked = unique.slice(0, 3);
