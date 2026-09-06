@@ -56,8 +56,8 @@ export function Orchestrator() {
 
       {!board.loading && rows.length === 0 ? (
         <Banner>
-          No topic scores yet. Take a pretest so the orchestrator has a map.{" "}
-          <Link to={`/notebooks/${notebookId}/quiz`}>Start pretest</Link>
+          No topic scores yet — spawn offer stays empty until a pretest has attempts (Study-logic does
+          not invent candidates). <Link to={`/notebooks/${notebookId}/quiz`}>Start pretest</Link>
         </Banner>
       ) : null}
 

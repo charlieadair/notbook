@@ -2,6 +2,7 @@ import { API_BASE_URL, joinUrl } from "../lib/config";
 import { emptySpawnOffer } from "../lib/spawn";
 import { apiErrorFromResponse, isApiError } from "./errors";
 import {
+  asRecord,
   toChat,
   toChatMessage,
   toChatMessages,
@@ -20,12 +21,14 @@ import {
   toSources,
   toSpawnOffer,
   toTopics,
+  unwrapList,
 } from "./normalize";
 import type {
   Chat,
   ChatMessage,
   Chunk,
   ConfirmTopicsInput,
+  CreateSpecialistsResult,
   GeneratedQuiz,
   GradeAttemptInput,
   GradeAttemptResult,
@@ -34,6 +37,7 @@ import type {
   Notebook,
   Scoreboard,
   SendChatMessageInput,
+  SendChatMessageResult,
   Source,
   SpawnOffer,
   StudyApi,
@@ -164,9 +168,8 @@ export class HttpStudyApi implements StudyApi {
   }
 
   async getOrCreateOrchestrator(notebookId: string): Promise<Chat | null> {
-    const data = await this.requestOptional<unknown>(`/notebooks/${notebookId}/chats/orchestrator`, {
-      method: "POST",
-    });
+    // PR #24: GET and POST are both idempotent get-or-create.
+    const data = await this.requestOptional<unknown>(`/notebooks/${notebookId}/chats/orchestrator`);
     if (data === undefined) return null;
     const chats = toChats(data);
     if (chats.length) return chats.find((c) => c.kind === "orchestrator") ?? chats[0];
@@ -185,15 +188,17 @@ export class HttpStudyApi implements StudyApi {
     return listed.find((c) => c.id === chatId) ?? null;
   }
 
-  async createSpecialists(notebookId: string, topicIds: string[]): Promise<Chat[]> {
+  async createSpecialists(notebookId: string, topicIds: string[]): Promise<CreateSpecialistsResult> {
     const data = await this.request<unknown>(`/notebooks/${notebookId}/chats/specialists`, {
       method: "POST",
       json: { topic_ids: topicIds },
     });
+    const rec = asRecord(data);
+    const warnings = unwrapList<unknown>(rec.warnings, ["warnings"]).map(String);
     const chats = toChats(data);
-    if (chats.length) return chats;
+    if (chats.length) return { chats, warnings };
     const chat = toChat(data);
-    return chat.id ? [chat] : [];
+    return { chats: chat.id ? [chat] : [], warnings };
   }
 
   async listChatMessages(chatId: string): Promise<ChatMessage[]> {
@@ -201,14 +206,25 @@ export class HttpStudyApi implements StudyApi {
     return data === undefined ? [] : toChatMessages(data);
   }
 
-  async sendChatMessage(chatId: string, input: SendChatMessageInput): Promise<ChatMessage | null> {
+  async sendChatMessage(chatId: string, input: SendChatMessageInput): Promise<SendChatMessageResult> {
+    const text = (input.text ?? input.content ?? "").trim();
     const data = await this.requestOptional<unknown>(`/chats/${chatId}/messages`, {
       method: "POST",
-      json: { content: input.content, role: input.role ?? "user" },
+      json: {
+        text,
+        content: text,
+        role: input.role ?? "user",
+        generate_quiz: Boolean(input.generate_quiz),
+      },
     });
-    if (data === undefined) return null;
+    if (data === undefined) return { message: null };
+    const rec = asRecord(data);
     const message = toChatMessage(data);
-    return message.id || message.content ? message : null;
+    const quizRaw = rec.quiz;
+    return {
+      message: message.id || message.text ? message : null,
+      quiz: quizRaw ? toGeneratedQuiz(quizRaw) : undefined,
+    };
   }
 
   async closeChat(chatId: string): Promise<Handoff> {

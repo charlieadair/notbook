@@ -33,7 +33,7 @@ Open `http://127.0.0.1:3000`. No account. Full DEMO needs Backend vault (PR #3, 
 4. **Propose + confirm topics** — Topics screen. **Propose topics**, edit a name if you want, **Confirm these topics**. The **Take pretest** button stays disabled until confirmed. (Or paste an explicit list and **Use this list** — no forced re-propose.)
 5. **Take pretest with Show citations** — start the pretest. Answer at least one item. Click **Show citations**. Chunk ids resolve via `GET /chunks/:id` to source text. Then finish the quiz.
 6. **See scoreboard** — per-topic correct rate, proficient at 80%, severity `ok | mild | severe`.
-7. **S1 focus offer (stretch / demo bar)** — if Study-logic S1 is mounted (or `VITE_USE_MOCK=1`), the scoreboard may offer at most **2** specialist chats after gaps. Accept some/none (offer, not auto-windows). Open a specialist, optionally send a message, **Close & hand off**. Confirm the summary lands on **Focus / orchestrator** while the holistic scoreboard (including mild gaps) stays visible.
+7. **S1 focus offer (demo bar)** — after pretest attempts, Study-logic `GET …/spawn-offer` may list ≤2 severe-first candidates (empty before attempts — Web does not invent them). Accept some/none (offer, not auto-windows). `POST …/chats/specialists` opens **one** specialist for the picked topic_ids. Optionally `POST …/chats/:id/messages` (`text`). **Close & hand off** → handoff lands on **Focus / orchestrator**. Mild gaps stay on the shared scoreboard. A third open specialist is 409 `TooManySpecialists`.
 
 S0 steps 1–6 must stay green even when S1 routes 404.
 

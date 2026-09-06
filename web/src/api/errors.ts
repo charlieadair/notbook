@@ -15,7 +15,19 @@ export class ApiError extends Error {
 
   get isTopicsUnconfirmed(): boolean {
     const code = normalizeCode(this.code);
-    return this.status === 409 || code === "topicsunconfirmed" || code === "topics_unconfirmed";
+    return (
+      (this.status === 409 && !this.isTooManySpecialists && !this.isChatClosed) ||
+      code === "topicsunconfirmed" ||
+      code === "topics_unconfirmed"
+    );
+  }
+
+  get isTooManySpecialists(): boolean {
+    return normalizeCode(this.code) === "toomanyspecialists";
+  }
+
+  get isChatClosed(): boolean {
+    return normalizeCode(this.code) === "chatclosed";
   }
 
   get isInsufficientEvidence(): boolean {

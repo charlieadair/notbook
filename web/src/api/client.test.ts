@@ -131,7 +131,8 @@ describe("HttpStudyApi S1 stubs", () => {
       }
       if (url.endsWith("/chats/specialists")) {
         return jsonResponse(200, {
-          chats: [{ id: "c1", notebook_id: "nb", kind: "specialist", topic_ids: ["t1"], status: "open", created_at: "t" }],
+          chat: { id: "c1", notebook_id: "nb", kind: "specialist", topic_ids: ["t1"], status: "open", created_at: "t", closed_at: null },
+          warnings: [],
         });
       }
       if (url.endsWith("/chats/orchestrator")) {
@@ -142,6 +143,7 @@ describe("HttpStudyApi S1 stubs", () => {
           topic_ids: [],
           status: "open",
           created_at: "t",
+          closed_at: null,
         });
       }
       if (url.endsWith("/chats")) {
@@ -149,13 +151,16 @@ describe("HttpStudyApi S1 stubs", () => {
       }
       if (url.endsWith("/close")) {
         return jsonResponse(200, {
-          id: "h1",
-          from_chat_id: "c1",
-          to_chat_id: "orch",
-          topic_ids: ["t1"],
-          summary: "Done",
-          scoreboard_snapshot: [],
-          created_at: "t",
+          chat: { id: "c1", notebook_id: "nb", kind: "specialist", topic_ids: ["t1"], status: "closed", created_at: "t", closed_at: "t" },
+          handoff: {
+            id: "h1",
+            from_chat_id: "c1",
+            to_chat_id: "orch",
+            topic_ids: ["t1"],
+            summary: "Done",
+            scoreboard_snapshot: [],
+            created_at: "t",
+          },
         });
       }
       if (url.endsWith("/handoffs")) {
@@ -168,7 +173,8 @@ describe("HttpStudyApi S1 stubs", () => {
     expect(offer.candidates[0].topic_id).toBe("t1");
     expect(offer.max_spawn).toBe(2);
     const created = await api.createSpecialists("nb", ["t1"]);
-    expect(created[0].id).toBe("c1");
+    expect(created.chats[0].id).toBe("c1");
+    expect(created.warnings).toEqual([]);
     const handoff = await api.closeChat("c1");
     expect(handoff.summary).toBe("Done");
     await api.listChats("nb");
@@ -180,7 +186,7 @@ describe("HttpStudyApi S1 stubs", () => {
       "POST http://127.0.0.1:8000/api/v1/chats/c1/close",
       "GET http://127.0.0.1:8000/api/v1/notebooks/nb/chats",
       "GET http://127.0.0.1:8000/api/v1/notebooks/nb/handoffs",
-      "POST http://127.0.0.1:8000/api/v1/notebooks/nb/chats/orchestrator",
+      "GET http://127.0.0.1:8000/api/v1/notebooks/nb/chats/orchestrator",
     ]);
   });
 
@@ -197,7 +203,7 @@ describe("HttpStudyApi S1 stubs", () => {
     await expect(api.listChatMessages("c1")).resolves.toEqual([]);
     await expect(api.getOrCreateOrchestrator("nb")).resolves.toBeNull();
     await expect(api.getChat("c1")).resolves.toBeNull();
-    await expect(api.sendChatMessage("c1", { content: "hi" })).resolves.toBeNull();
+    await expect(api.sendChatMessage("c1", { text: "hi" })).resolves.toEqual({ message: null });
   });
 });
 
@@ -257,13 +263,14 @@ describe("MockStudyApi S0 path", () => {
       nb.id,
       offer.candidates.map((c) => c.topic_id),
     );
-    expect(specialists.length).toBeGreaterThan(0);
-    expect(specialists.every((c) => c.kind === "specialist" && c.status === "open")).toBe(true);
+    expect(specialists.chats).toHaveLength(1);
+    expect(specialists.chats[0].kind).toBe("specialist");
+    expect(specialists.chats[0].topic_ids.length).toBeGreaterThan(0);
 
-    await api.sendChatMessage(specialists[0].id, { content: "Stay on this topic." });
-    const handoff = await api.closeChat(specialists[0].id);
+    await api.sendChatMessage(specialists.chats[0].id, { text: "Stay on this topic." });
+    const handoff = await api.closeChat(specialists.chats[0].id);
     expect(handoff.summary.length).toBeGreaterThan(0);
-    expect(handoff.topic_ids).toEqual(specialists[0].topic_ids);
+    expect(handoff.topic_ids).toEqual(specialists.chats[0].topic_ids);
     const landed = await api.listHandoffs(nb.id);
     expect(landed.some((h) => h.id === handoff.id)).toBe(true);
     const orch = await api.getOrCreateOrchestrator(nb.id);
@@ -273,6 +280,15 @@ describe("MockStudyApi S0 path", () => {
     const after = await api.getScoreboard(nb.id);
     expect(after.window).toBe(20);
     expect(after.topics.length).toBe(before.topics.length);
+
+    const firstOpen = await api.createSpecialists(nb.id, [offer.candidates[0].topic_id]);
+    const secondOpen = await api.createSpecialists(nb.id, [offer.candidates[0].topic_id]);
+    expect(firstOpen.chats).toHaveLength(1);
+    expect(secondOpen.chats).toHaveLength(1);
+    await expect(api.createSpecialists(nb.id, [offer.candidates[0].topic_id])).rejects.toMatchObject({
+      status: 409,
+      isTooManySpecialists: true,
+    });
   });
 
   it("marks extract failed when the filename includes fail", async () => {

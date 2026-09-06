@@ -148,14 +148,17 @@ export type Chat = {
   topic_ids: string[];
   status: ChatStatus;
   created_at: string;
-  closed_at?: string;
+  closed_at?: string | null;
 };
 
 export type ChatMessage = {
   id: string;
   chat_id: string;
   role: ChatMessageRole;
-  content: string;
+  /** Canonical field from Study-logic PR #24. */
+  text: string;
+  /** Web alias; normalize copies `text` here when absent. */
+  content?: string;
   created_at: string;
   citation_chunk_ids?: string[];
 };
@@ -183,8 +186,21 @@ export type Handoff = {
 };
 
 export type SendChatMessageInput = {
-  content: string;
-  role?: ChatMessageRole;
+  /** Canonical body field is `text` (PR #24). `content` is accepted as an alias. */
+  text?: string;
+  content?: string;
+  role?: "user" | "assistant";
+  generate_quiz?: boolean;
+};
+
+export type SendChatMessageResult = {
+  message: ChatMessage | null;
+  quiz?: GeneratedQuiz;
+};
+
+export type CreateSpecialistsResult = {
+  chats: Chat[];
+  warnings: string[];
 };
 
 export interface StudyApi {
@@ -213,12 +229,12 @@ export interface StudyApi {
   getOrCreateOrchestrator(notebookId: string): Promise<Chat | null>;
   /** GET /chats/:id, else find in notebook chat list; null on 404/501. */
   getChat(chatId: string, notebookId?: string): Promise<Chat | null>;
-  /** POST /notebooks/:id/chats/specialists `{ topic_ids }`. */
-  createSpecialists(notebookId: string, topicIds: string[]): Promise<Chat[]>;
-  /** GET /chats/:id/messages — [] on 404/501. */
+  /** POST /notebooks/:id/chats/specialists `{ topic_ids }` → `{ chat, warnings }` (one chat). */
+  createSpecialists(notebookId: string, topicIds: string[]): Promise<CreateSpecialistsResult>;
+  /** GET /chats/:id/messages — [] on 404/501 (not in PR #24; optional). */
   listChatMessages(chatId: string): Promise<ChatMessage[]>;
-  /** POST /chats/:id/messages — null on 404/501. */
-  sendChatMessage(chatId: string, input: SendChatMessageInput): Promise<ChatMessage | null>;
+  /** POST /chats/:id/messages `{ text | content, generate_quiz? }` → `{ message, quiz? }`. */
+  sendChatMessage(chatId: string, input: SendChatMessageInput): Promise<SendChatMessageResult>;
   /** POST /chats/:id/close → Handoff into orchestrator. */
   closeChat(chatId: string): Promise<Handoff>;
   /** GET /notebooks/:id/handoffs — [] on 404/501. */

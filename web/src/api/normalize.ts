@@ -255,11 +255,13 @@ export function toChats(raw: unknown): Chat[] {
 export function toChatMessage(raw: unknown): ChatMessage {
   const rec = asRecord(unwrapObject<unknown>(raw, ["message"]));
   const cites = unwrapList<unknown>(rec.citation_chunk_ids, ["citation_chunk_ids", "citations"]).map(String);
+  const text = String(rec.text ?? rec.content ?? rec.body ?? rec.summary ?? "");
   return {
     id: String(rec.id ?? rec.message_id ?? ""),
     chat_id: String(rec.chat_id ?? ""),
     role: toMessageRole(rec.role),
-    content: String(rec.content ?? rec.text ?? rec.body ?? rec.summary ?? ""),
+    text,
+    content: text,
     created_at: String(rec.created_at ?? ""),
     citation_chunk_ids: cites.length ? cites : undefined,
   };

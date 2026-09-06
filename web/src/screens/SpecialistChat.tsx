@@ -40,9 +40,9 @@ export function SpecialistChat() {
     setError(null);
     setComposeNote(null);
     try {
-      const posted = await api.sendChatMessage(chatId, { content });
+      const posted = await api.sendChatMessage(chatId, { text: content });
       setDraft("");
-      if (!posted) {
+      if (!posted.message) {
         setComposeNote("Message endpoint is not mounted yet. You can still close this chat to send a handoff.");
       }
       await messages.reload();
@@ -128,7 +128,7 @@ export function SpecialistChat() {
               <p className="muted">
                 {message.role} {formatWhen(message.created_at)}
               </p>
-              <p>{message.content}</p>
+              <p>{message.text || message.content}</p>
             </article>
           ))}
         </div>
@@ -147,6 +147,32 @@ export function SpecialistChat() {
             <div className="row">
               <button className="btn" type="submit" disabled={busy || !draft.trim()}>
                 {busy ? "Sending…" : "Send"}
+              </button>
+              <button
+                className="btn btn-ghost"
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  void (async () => {
+                    setBusy(true);
+                    setError(null);
+                    try {
+                      const posted = await api.sendChatMessage(chatId, { generate_quiz: true });
+                      await messages.reload();
+                      if (posted.quiz) {
+                        setComposeNote(
+                          `Grounded quiz generated (${posted.quiz.items.length} items, citations required). Grade via existing POST /quizzes/:id/attempts — shared scoreboard.`,
+                        );
+                      }
+                    } catch (err) {
+                      setError(errorMessage(err));
+                    } finally {
+                      setBusy(false);
+                    }
+                  })();
+                }}
+              >
+                Generate grounded quiz
               </button>
             </div>
           </form>
