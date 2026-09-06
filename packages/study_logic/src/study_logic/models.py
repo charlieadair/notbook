@@ -66,6 +66,23 @@ class QuizChoice:
 
 
 @dataclass
+class WebCitation:
+    """Labeled web provenance — never a vault chunk id."""
+
+    url: str
+    title: str
+    snippet: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "url": self.url,
+            "title": self.title,
+            "snippet": self.snippet,
+            "source": "web",
+        }
+
+
+@dataclass
 class QuizItem:
     id: str
     quiz_id: str
@@ -75,6 +92,7 @@ class QuizItem:
     correct_choice_id: str
     citation_chunk_ids: list[str]
     rationale: str | None = None
+    web_citations: list[WebCitation] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -86,6 +104,7 @@ class QuizItem:
             "correct_choice_id": self.correct_choice_id,
             "citation_chunk_ids": list(self.citation_chunk_ids),
             **({"rationale": self.rationale} if self.rationale else {}),
+            **({"web_citations": [w.as_dict() for w in self.web_citations]} if self.web_citations else {}),
         }
 
 
@@ -271,9 +290,14 @@ class AttemptBody(BaseModel):
 
 
 class QuizBody(BaseModel):
-    """Optional topic scope. Omit for the S0 whole-notebook pretest."""
+    """Optional topic scope. Omit for the S0 whole-notebook pretest.
+
+    ``supplement=true`` is an explicit opt-in for labeled web background.
+    Vault remains the default and is still required for citations.
+    """
 
     topic_ids: list[str] | None = None
+    supplement: bool = False
 
 
 class SpecialistBody(BaseModel):

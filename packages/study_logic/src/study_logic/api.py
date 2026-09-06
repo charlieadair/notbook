@@ -10,6 +10,7 @@ from study_logic.engine import StudyEngine
 from study_logic.errors import StudyError
 from study_logic.models import AttemptBody, ConfirmBody, MessageBody, QuizBody, SpecialistBody
 from study_logic.quiz import CompleteFn
+from study_logic.search import SearchAdapter
 from study_logic.vault import ListChunksFn, RetrieveFn, create_fixture_vault
 
 
@@ -29,9 +30,15 @@ def create_router(
     engine: StudyEngine | None = None,
     list_chunks: ListChunksFn | None = None,
     complete: CompleteFn | None = None,
+    search: SearchAdapter | None = None,
 ) -> APIRouter:
     """S0 + S1 routes without `/api/v1`. Backend mounts with prefix=\"/api/v1\"."""
-    study = engine or StudyEngine(retrieve=retrieve, list_chunks=list_chunks, complete=complete)
+    study = engine or StudyEngine(
+        retrieve=retrieve,
+        list_chunks=list_chunks,
+        complete=complete,
+        search=search,
+    )
     api = APIRouter()
 
     @api.post("/notebooks/{notebook_id}/topics/propose")
@@ -62,7 +69,11 @@ def create_router(
     @_guard
     def create_quiz(notebook_id: str, body: QuizBody | None = None) -> dict[str, Any]:
         payload = body or QuizBody()
-        return study.create_quiz(notebook_id, topic_ids=payload.topic_ids)
+        return study.create_quiz(
+            notebook_id,
+            topic_ids=payload.topic_ids,
+            supplement=payload.supplement,
+        )
 
     @api.post("/quizzes/{quiz_id}/attempts")
     @_guard
@@ -128,6 +139,7 @@ def install_study_logic(
     list_chunks: ListChunksFn | None = None,
     engine: StudyEngine | None = None,
     complete: CompleteFn | None = None,
+    search: SearchAdapter | None = None,
     prefix: str = "/api/v1",
 ) -> APIRouter:
     """DEMO mount: one FastAPI process on :8000 includes S0 + S1 routes."""
@@ -136,6 +148,7 @@ def install_study_logic(
         engine=engine,
         list_chunks=list_chunks,
         complete=complete,
+        search=search,
     )
     app.add_exception_handler(StudyError, study_error_handler)
     app.include_router(mounted, prefix=prefix)

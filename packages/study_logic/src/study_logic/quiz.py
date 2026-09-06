@@ -6,11 +6,12 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from study_logic.models import Chunk, Quiz, QuizChoice, QuizItem, Topic, is_citable
+from study_logic.models import Chunk, Quiz, QuizChoice, QuizItem, Topic, WebCitation, is_citable
 
 MAX_CHOICE_CHARS = 100
 MAX_RAW_BLOB_CHARS = 150
 MAX_EXCERPT_CHARS = 140
+THIN_SENTENCE_COUNT = 2
 SOURCE_RECALL_PHRASE = "stated in the cited source"
 
 # Conceptual contrasts — never “this is not in the retrieved source”.
@@ -146,6 +147,14 @@ def keep_grounded_items(items: list[QuizItem], known_chunk_ids: set[str]) -> lis
     return [item for item in items if is_grounded_item(item, known_chunk_ids)]
 
 
+def evidence_is_thin(chunks: list[Chunk]) -> bool:
+    """Few usable vault sentences — hedge with labeled web, never replace vault."""
+    if not chunks:
+        return True
+    sentences = [hit for chunk in chunks for hit in extract_sentences(chunk)]
+    return len(sentences) < THIN_SENTENCE_COUNT
+
+
 def is_exam_shaped_item(item: QuizItem) -> bool:
     if SOURCE_RECALL_PHRASE in item.stem.lower() or _SOURCE_RECALL_STEM.search(item.stem):
         return False
@@ -166,6 +175,7 @@ def build_grounded_items(
     topics: list[Topic],
     evidence: dict[str, list[Chunk]],
     complete: CompleteFn | None = None,
+    web_by_topic: dict[str, list[WebCitation]] | None = None,
 ) -> list[QuizItem]:
     items: list[QuizItem] = []
     all_sentences: list[SentenceHit] = []
@@ -177,12 +187,13 @@ def build_grounded_items(
 
     for topic in topics:
         local = [hit for chunk in evidence.get(topic.id, []) for hit in extract_sentences(chunk)]
+        web_hits = list((web_by_topic or {}).get(topic.id, []))
         made = 0
         used: set[str] = set()
         for hit in local:
             if hit.text in used or len(items) >= 12:
                 continue
-            item = _make_item(quiz_id, topic, hit, all_sentences, complete)
+            item = _make_item(quiz_id, topic, hit, all_sentences, complete, web_hits=web_hits)
             if not item:
                 continue
             used.add(hit.text)
@@ -199,8 +210,12 @@ def _make_item(
     hit: SentenceHit,
     pool: list[SentenceHit],
     complete: CompleteFn | None = None,
+    web_hits: list[WebCitation] | None = None,
 ) -> QuizItem | None:
-    drafted = _draft_with_complete(complete, topic, hit) if complete is not None else None
+    labeled_web = list(web_hits or [])
+    drafted = (
+        _draft_with_complete(complete, topic, hit, web_hits=labeled_web) if complete is not None else None
+    )
     if drafted is None:
         drafted = _conceptualize(topic, hit.text)
     if drafted is None:
@@ -229,23 +244,43 @@ def _make_item(
         correct_choice_id=correct_id,
         citation_chunk_ids=[hit.chunk_id],
         rationale=_grounded_rationale(hit),
+        web_citations=list(labeled_web),
     )
     if not is_exam_shaped_item(item):
         return None
     return item
 
 
-def _draft_with_complete(complete: CompleteFn, topic: Topic, hit: SentenceHit) -> ConceptDraft | None:
+def _format_web_background(web_hits: list[WebCitation]) -> str:
+    if not web_hits:
+        return ""
+    lines = [f"- [web] {hit.title} — {hit.snippet} ({hit.url})" for hit in web_hits[:3]]
+    return (
+        "\nOptional web background (NOT course truth; do not treat as lecture evidence;\n"
+        "the correct answer must come only from the vault evidence sentence):\n"
+        + "\n".join(lines)
+        + "\n"
+    )
+
+
+def _draft_with_complete(
+    complete: CompleteFn,
+    topic: Topic,
+    hit: SentenceHit,
+    web_hits: list[WebCitation] | None = None,
+) -> ConceptDraft | None:
     source = hit.source_filename or hit.chunk_id
     prompt = (
         f'Draft one multiple-choice exam item about "{topic.name}".\n\n'
         f"Evidence sentence (cite this; do not invent facts):\n{hit.text}\n\n"
-        f"Source label: {source}\n\n"
+        f"Source label: {source}\n"
+        f"{_format_web_background(list(web_hits or []))}\n"
         "Rules:\n"
         "- Stem must ask for meaning, definition, consequence, or when-to-use.\n"
         '- Never ask which option is "stated in the cited source" or similar source-matching.\n'
         "- Four short clean choices (each ≤ 100 characters). No multi-line dumps.\n"
-        "- One correct choice, grounded only in the evidence sentence.\n"
+        "- One correct choice, grounded only in the vault evidence sentence.\n"
+        "- Web snippets are labeled background only — never the source of the correct answer.\n"
         "- Return JSON only.\n"
     )
     try:

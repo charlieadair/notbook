@@ -43,6 +43,7 @@ Copy `backend/.env.example` → `backend/.env`. Fill locally; never commit value
 | `OPENAI_API_KEY` | Provider key — **never commit** | `sk-not-committed` |
 | `EMBED_MODEL` | Embeddings model id. Alias: `OPENAI_EMBED_MODEL` | unset (adapter default) |
 | `CHAT_MODEL` | Chat/completions model id. Alias: `OPENAI_CHAT_MODEL` | unset (adapter default) |
+| `SEARXNG_URL` | Optional. Study-logic SearXNG client for `supplement=true` quizzes. Unset → vault-only. **Not on the judge path.** | unset |
 
 Web ([`web/.env.example`](web/.env.example); optional — defaults work for local Backend):
 

@@ -10,7 +10,7 @@ From the repo root:
 
 ```bash
 pip install -e packages/study_logic
-pip install -e 'packages/study_logic[dev]'   # pytest + httpx
+pip install -e 'packages/study_logic[dev]'   # pytest (httpx is a runtime dep for SearXNG)
 ```
 
 ## Backend mount (DEMO)
@@ -107,6 +107,18 @@ S1 chat tree (same router / same process):
 - Close writes an auto **Handoff** into the orchestrator with a progress summary + `scoreboard_snapshot`. Summary is scoreboard/progress only (no unsourced teaching claims).
 
 Optional `{ "topic_ids": [...] }` on `POST /quizzes` scopes generation; omit it for the S0 whole-notebook pretest.
+
+Optional `{ "supplement": true }` is an **explicit opt-in** for labeled web background (issue #43). Default is vault-only. When true, Study searches confirmed topic names (especially useful when vault evidence is thin), passes `[web]` snippets into generation as a hedge, and still requires vault `citation_chunk_ids`. Items that used web hits include `web_citations[]` (`url`, `title`, `snippet`, `source: "web"`). Unset or down SearXNG → `warnings[]` and vault-only fallback — never invented hits. Chat `generate_quiz` stays vault-only.
+
+### Enable SearXNG (optional)
+
+Study-logic owns the HTTP client (`study_logic.search.SearxngClient`). Backend’s httpx stack is inference-only.
+
+1. Set `SEARXNG_URL` (example: `http://127.0.0.1:8080` on the host, or `http://searxng:8080` on the compose network).
+2. Start the optional compose service: `docker compose --profile supplement up searxng` (settings in [`deploy/searxng/settings.yml`](../../deploy/searxng/settings.yml) enable the JSON API).
+3. `POST /api/v1/notebooks/{id}/quizzes` with `{ "supplement": true }`.
+
+If `SEARXNG_URL` is missing or the instance is down, the response includes a warning and items stay vault-cited.
 
 ## S1 shapes (Web)
 

@@ -2,6 +2,10 @@
 #   docker compose pull && docker compose up
 #   curl -fsS http://127.0.0.1:8000/health
 #   open http://127.0.0.1:3000
+#
+# Optional web supplement (SearXNG, profile `supplement` — not started by default):
+#   SEARXNG_URL=http://searxng:8080 docker compose --profile supplement up
+#   Then POST /api/v1/notebooks/{id}/quizzes with {"supplement": true}
 name: notbook
 
 services:
@@ -20,6 +24,7 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       EMBED_MODEL: ${EMBED_MODEL:-}
       CHAT_MODEL: ${CHAT_MODEL:-}
+      SEARXNG_URL: ${SEARXNG_URL:-}
     volumes:
       - notbook-data:/data
     extra_hosts:
@@ -37,6 +42,18 @@ services:
       - "127.0.0.1:3000:3000"
     depends_on:
       - api
+
+  # Opt-in only. Study-logic reads SEARXNG_URL; unset/down → vault-only + warning.
+  searxng:
+    profiles: ["supplement"]
+    image: docker.io/searxng/searxng:latest
+    init: true
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      SEARXNG_BASE_URL: http://127.0.0.1:8080/
+    volumes:
+      - ./deploy/searxng/settings.yml:/etc/searxng/settings.yml:ro
 
 volumes:
   notbook-data:

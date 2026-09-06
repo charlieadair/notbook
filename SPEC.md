@@ -192,7 +192,7 @@ User can accept all, some, or none. Default suggest at most **2** specialists pe
 1. Prefer retrieval-augmented answers; attach citations (chunk id / source label) on quiz rationales and explanations.  
 2. Voice: “I think it works this way because [source] says X, Y, Z,” not an unsourced textbook lecture.  
 3. If retrieval confidence is low: say so; ask to upload/clarify; do not silently fill from parametric knowledge as if it were course truth.  
-4. Optional later: explicit “supplement outside sources” mode — **not** the default for exam prep.  
+4. Explicit opt-in only: `supplement=true` on quiz generate may fetch labeled web snippets (SearXNG) as a thin-vault hedge. Vault remains the default and is still required (`citation_chunk_ids`). Web is cited separately (`web_citations` URL/title/snippet) and is never silent course truth. Not S2 flashcards/media.  
 5. Never hide what was retrieved for a graded or teaching turn when the UI can show it.
 
 Quiz generation must pull from vault evidence for the tagged topic. Items without adequate support are dropped or flagged, not invented.

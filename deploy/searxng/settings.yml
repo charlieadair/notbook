@@ -1,0 +1,22 @@
+# Local-only SearXNG for optional quiz supplement (docker compose profile `supplement`).
+# JSON format is required by study-logic's SearxngClient. Not a public instance.
+use_default_settings: true
+
+general:
+  instance_name: "notbook-searxng"
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "en"
+  formats:
+    - html
+    - json
+
+server:
+  # Placeholder for loopback demo only — do not reuse for a public instance.
+  secret_key: "notbook-local-supplement-not-a-secret"
+  limiter: false
+  image_proxy: false
+  bind_address: "0.0.0.0"
+  port: 8080

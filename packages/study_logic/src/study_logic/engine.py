@@ -22,9 +22,11 @@ from study_logic.models import (
     Scoreboard,
     SpawnOffer,
     Topic,
+    WebCitation,
 )
-from study_logic.quiz import CompleteFn, build_grounded_items, create_quiz_record
+from study_logic.quiz import CompleteFn, build_grounded_items, create_quiz_record, evidence_is_thin
 from study_logic.scoreboard import build_scoreboard, score_topic
+from study_logic.search import SearchAdapter, search_adapter_from_env
 from study_logic.store import MemoryStore
 from study_logic.topics import all_topics_confirmed, normalize_explicit_names, propose_topic_names, topics_from_names
 from study_logic.vault import (
@@ -44,6 +46,7 @@ class StudyEngine:
         store: MemoryStore | None = None,
         list_chunks: ListChunksFn | None = None,
         complete: CompleteFn | None = None,
+        search: SearchAdapter | None = None,
     ) -> None:
         if retrieve is None and list_chunks is None:
             vault = create_fixture_vault()
@@ -53,6 +56,7 @@ class StudyEngine:
         self.list_chunks = list_chunks or companion_list_chunks(self.retrieve)
         self.store = store or MemoryStore()
         self.complete = complete
+        self.search = search
 
     def propose_topics(self, notebook_id: str) -> list[Topic]:
         # Never sample via retrieve(query=""): Backend blank-query retrieve is [].
@@ -103,7 +107,12 @@ class StudyEngine:
     def list_topics(self, notebook_id: str) -> list[Topic]:
         return self.store.list_topics(notebook_id)
 
-    def create_quiz(self, notebook_id: str, topic_ids: list[str] | None = None) -> dict:
+    def create_quiz(
+        self,
+        notebook_id: str,
+        topic_ids: list[str] | None = None,
+        supplement: bool = False,
+    ) -> dict:
         topics = self.store.list_topics(notebook_id)
         if not all_topics_confirmed(topics):
             raise topics_unconfirmed("Confirm every topic before generating a quiz")
@@ -124,14 +133,48 @@ class StudyEngine:
         if not known_ids:
             raise insufficient_evidence("Vault is empty or returned no citable chunks")
 
+        web_by_topic, warnings = self._supplement_web(topics, evidence) if supplement else ({}, [])
+
         quiz_id = str(uuid.uuid4())
-        items = build_grounded_items(quiz_id, topics, evidence, complete=self.complete)
+        items = build_grounded_items(
+            quiz_id,
+            topics,
+            evidence,
+            complete=self.complete,
+            web_by_topic=web_by_topic or None,
+        )
         if not items:
             raise insufficient_evidence("No grounded quiz items could be built from retrieved chunks")
 
         quiz = create_quiz_record(notebook_id, items, datetime.now(timezone.utc).isoformat())
         self.store.put_quiz(quiz, items)
-        return {"quiz": quiz.as_dict(), "items": [item.as_dict() for item in items]}
+        payload: dict = {"quiz": quiz.as_dict(), "items": [item.as_dict() for item in items]}
+        if supplement and warnings:
+            payload["warnings"] = warnings
+        return payload
+
+    def _supplement_web(
+        self,
+        topics: list[Topic],
+        evidence: dict[str, list],
+    ) -> tuple[dict[str, list[WebCitation]], list[str]]:
+        adapter = self.search if self.search is not None else search_adapter_from_env()
+        web_by_topic: dict[str, list[WebCitation]] = {}
+        warnings: list[str] = []
+        thin_names = [topic.name for topic in topics if evidence_is_thin(evidence.get(topic.id, []))]
+        if thin_names:
+            warnings.append(
+                "Vault evidence is thin for: "
+                + ", ".join(thin_names)
+                + ". Web snippets are a labeled hedge, not course truth."
+            )
+        for topic in topics:
+            outcome = adapter.search(topic.name)
+            if outcome.warning and outcome.warning not in warnings:
+                warnings.append(outcome.warning)
+            if outcome.hits:
+                web_by_topic[topic.id] = list(outcome.hits)
+        return web_by_topic, warnings
 
     def grade_attempt(self, quiz_id: str, item_id: str, selected_choice_id: str) -> dict:
         if not item_id or not selected_choice_id:

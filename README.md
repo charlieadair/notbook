@@ -106,3 +106,27 @@ npm run build
 npm start          # offline fixture smoke on 127.0.0.1:3001, not DEMO
 ```
 
+## Optional web supplement (SearXNG)
+
+Vault-grounded quizzes stay the default. An **explicit** `supplement=true` on `POST /api/v1/notebooks/{id}/quizzes` may fetch labeled web snippets as a thin-vault hedge. Web is never silent course truth: items still require vault `citation_chunk_ids`, and web hits appear separately as `web_citations[]` (`url` / `title` / `snippet`). Not used for S2 flashcards or media.
+
+Study-logic owns the SearXNG HTTP client (`SEARXNG_URL`). Backend’s httpx client is only the OpenAI-compatible inference adapter — not a search home. If the env var is unset or SearXNG is down, generation warns and falls back to vault-only (no invented results).
+
+```bash
+# Optional compose service (not started by default)
+SEARXNG_URL=http://searxng:8080 docker compose --profile supplement up
+
+# Or run SearXNG alone and point a source-run API at it
+docker compose --profile supplement up searxng
+# backend/.env or the shell:
+# SEARXNG_URL=http://127.0.0.1:8080
+```
+
+```bash
+curl -fsS -X POST http://127.0.0.1:8000/api/v1/notebooks/$NOTEBOOK_ID/quizzes \
+  -H 'Content-Type: application/json' \
+  -d '{"supplement":true}'
+```
+
+Omit the flag (or send `supplement: false`) for the unchanged vault-only pretest. JSON search must stay enabled on the SearXNG instance — the repo ships [`deploy/searxng/settings.yml`](deploy/searxng/settings.yml) for the compose profile.
+
